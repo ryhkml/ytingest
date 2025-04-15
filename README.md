@@ -41,7 +41,7 @@ There are options listed:
 | `--format`            | txt           | Specify the output file format. Available: json, md, and txt                         |
 | `--lang`              | en            | Specify language code for transcript translation                                     |
 | `--lang-available`    |               | Display available transcript translation languages                                   |
-| `-O`, `--output-path` | ingest        | Specify the directory to save the output file                                        |
+| `-O`, `--output-path` | `$pwd`        | Specify the directory to save the output file                                        |
 | `-T`, `--token-count` |               | Specify Google Gemini or OpenAI model name to estimate the token count of the output |
 | `-h`, `--help`        |               | Display help message and exit                                                        |
 | `-v`, `--version`     |               | Display help message and exit                                                        |
