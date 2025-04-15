@@ -19,8 +19,8 @@ int main(int argc, char **argv) {
 
     cmd_append(&cmd, "cc", "-O2", "-Wall", "-Wextra", "-Wformat", "-Wformat-security", "-std=c17",
                "-fstack-protector-strong", "-D_FORTIFY_SOURCE=2", "-Isrc/cJSON", "-Isrc/tiktoken-c", "-o",
-               "out/ytingest", "src/main.c", "src/ingest.c", "-lcurl", "-lcjson", "-Lsrc/tiktoken-c/target/release",
-               "-ltiktoken_c", "-Wl,-rpath=src/tiktoken-c/target/release");
+               "out/ytingest", "src/main.c", "src/ingest.c", "src/cJSON/cJSON.c", "-lcurl",
+               "-Lsrc/tiktoken-c/target/release", "-ltiktoken_c", "-Wl,-rpath=src/tiktoken-c/target/release");
     da_append(&procs, cmd_run_async_and_reset(&cmd));
 
     if (!procs_wait_and_reset(&procs)) return 1;
