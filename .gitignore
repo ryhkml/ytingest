@@ -9,7 +9,10 @@ nob
 nob.d
 nob.old
 
-sample*.json
 yt_*.json
 yt_*.md
 yt_*.txt
+sample*.json
+!sample/yt_*.json
+!sample/yt_*.md
+!sample/yt_*.txt
