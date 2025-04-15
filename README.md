@@ -16,7 +16,7 @@ Requirements:
 Run the following command to clone and update submodules:
 
 ```sh
-git clone --recurse-submodules https://github.com/ryhkml/ytingest
+git clone --recurse-submodules https://github.com/ryhkml/ytingest.git
 git submodule update --init --recursive
 ```
 
