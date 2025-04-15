@@ -1,0 +1,3 @@
+nob.h linguist-vendored
+src/cJSON/** linguist-vendored
+src/tiktoken-c/** linguist-vendored

@@ -1,0 +1,15 @@
+!out
+out/*
+!out/.gitkeep
+
+diff.txt
+note.txt
+
+nob
+nob.d
+nob.old
+
+sample*.json
+yt_*.json
+yt_*.md
+yt_*.txt
