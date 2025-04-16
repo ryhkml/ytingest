@@ -4,7 +4,7 @@ Ytingest enables LLMs to gain knowledge from YouTube video content. Ytingest all
 
 1. Retrieve transcript from YouTube videos (when available)
 1. Save the information in a format compatible with LLMs
-1. Calculate token counts using an OpenAI model
+1. Calculate token counts using a Google Gemini or OpenAI model
 
 ## Build and Usage
 
