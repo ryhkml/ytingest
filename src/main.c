@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_SUCCESS;
                 break;
             case 'v':
-                printf("?\n");
+                printf("0.1.0\n");
                 return EXIT_SUCCESS;
             case 0:
                 if (opt_index == 1) ytingest.lang = optarg;
