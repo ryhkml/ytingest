@@ -30,8 +30,16 @@ cc -o nob nob.c
 
 The compiled executable will be located in the `out` directory. You can run it using the following command:
 
-```
+```sh
 out/ytingest "https://www.youtube.com/watch?v=OeYnV9zp7Dk"
+```
+
+Or use the token count option based on the Gemini model:
+
+```sh
+# Set the GEMINI_API_KEY env
+export GEMINI_API_KEY="..."
+out/ytingest -T gemini-2.5-pro-preview-03-25 "https://www.youtube.com/watch?v=OeYnV9zp7Dk"
 ```
 
 There are options listed:
@@ -39,7 +47,7 @@ There are options listed:
 | Option                | Default Value | Description                                                                          |
 | --------------------- | ------------- | ------------------------------------------------------------------------------------ |
 | `-e`, `--excludes`    |               | Specify YouTube metadata fields to exclude (comma-separated)                         |
-| `--format`            | txt           | Specify the output file format. Available: json, md, and txt                         |
+| `--format`            | txt           | Specify the output file format                                                       |
 | `--lang`              | en            | Specify language code for transcript translation                                     |
 | `--lang-available`    |               | Display available transcript translation languages                                   |
 | `-O`, `--output-path` | `$pwd`        | Specify the directory to save the output file                                        |
