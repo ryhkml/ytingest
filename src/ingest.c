@@ -395,19 +395,19 @@ static void token_count(FILE *file, const char *model) {
         };
 
         const char *payload_fmt = "{\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"%s\"}]}]}";
-        size_t payload_size = strlen(payload_fmt) + strlen(file_buff);
+        size_t payload_size = snprintf(NULL, 0, payload_fmt, file_buff);
         char *payload_buff = malloc(payload_size + 1);
         if (!payload_buff) goto done;
         snprintf(payload_buff, payload_size + 1, payload_fmt, file_buff);
 
-        const char *endpoint_prefix = "https://generativelanguage.googleapis.com/v1beta/models/%s:countTokens?key=%s";
-        size_t endpoint_size = strlen(endpoint_prefix) + strlen(model) + strlen(GEMINI_API_KEY);
+        const char *endpoint_fmt = "https://generativelanguage.googleapis.com/v1beta/models/%s:countTokens?key=%s";
+        size_t endpoint_size = snprintf(NULL, 0, endpoint_fmt, model, GEMINI_API_KEY);
         char *endpoint_buff = malloc(endpoint_size + 1);
         if (!endpoint_buff) {
             free(payload_buff);
             goto done;
         }
-        snprintf(endpoint_buff, endpoint_size + 1, endpoint_prefix, model, GEMINI_API_KEY);
+        snprintf(endpoint_buff, endpoint_size + 1, endpoint_fmt, model, GEMINI_API_KEY);
 
         char *res = fetch(endpoint_buff, RF_JSON, payload_buff);
         if (!res) {
@@ -652,7 +652,7 @@ int ingest(const char *url, struct YtingestOpt *opt) {
             output_path_fmt = "%s/yt_%s.%s";
         }
         size_t output_path_size =
-            strlen(output_path_fmt) + strlen(opt->output_path) + strlen(video_id->valuestring) + strlen(opt->format);
+            snprintf(NULL, 0, output_path_fmt, opt->output_path, video_id->valuestring, opt->format);
         yt.ctx.filename = malloc(output_path_size + 1);
         if (!yt.ctx.filename) {
             printf("Failed to allocate memory - %d\n", __LINE__);
@@ -664,7 +664,7 @@ int ingest(const char *url, struct YtingestOpt *opt) {
         file = fopen(yt.ctx.filename, "w+");
     } else {
         const char *output_path_fmt = "yt_%s.%s";
-        size_t output_path_size = strlen(output_path_fmt) + strlen(video_id->valuestring) + strlen(opt->format);
+        size_t output_path_size = snprintf(NULL, 0, output_path_fmt, video_id->valuestring, opt->format);
         yt.ctx.filename = malloc(output_path_size + 1);
         if (!yt.ctx.filename) {
             printf("Failed to allocate memory - %d\n", __LINE__);
@@ -760,7 +760,7 @@ int ingest(const char *url, struct YtingestOpt *opt) {
     if (isinclude(opt->exclude, "video_url")) {
         if (mstrcasestr(url, "youtube.com/shorts/")) {
             const char *video_url_fmt = "https://www.youtube.com/shorts/%s";
-            size_t video_url_size = strlen(video_url_fmt) + strlen(video_id->valuestring);
+            size_t video_url_size = snprintf(NULL, 0, video_url_fmt, video_id->valuestring);
             yt.video_url = malloc(video_url_size + 1);
             if (!yt.video_url) {
                 exit_status = 1;
@@ -770,7 +770,7 @@ int ingest(const char *url, struct YtingestOpt *opt) {
             snprintf(yt.video_url, video_url_size + 1, video_url_fmt, video_id->valuestring);
         } else {
             const char *video_url_fmt = "https://www.youtube.com/watch?v=%s";
-            size_t video_url_size = strlen(video_url_fmt) + strlen(video_id->valuestring);
+            size_t video_url_size = snprintf(NULL, 0, video_url_fmt, video_id->valuestring);
             yt.video_url = malloc(video_url_size + 1);
             if (!yt.video_url) {
                 exit_status = 1;
@@ -834,7 +834,7 @@ int ingest(const char *url, struct YtingestOpt *opt) {
                     if (cJSON_IsObject(track)) {
                         cJSON *base_url = cJSON_GetObjectItem(track, "baseUrl");
                         const char *endpoint_fmt = "%s&fmt=json3&tlang=%s";
-                        size_t endpoint_size = strlen(endpoint_fmt) + strlen(base_url->valuestring) + strlen(opt->lang);
+                        size_t endpoint_size = snprintf(NULL, 0, endpoint_fmt, base_url->valuestring, opt->lang);
                         char *endpoint_buff = malloc(endpoint_size + 1);
                         if (!endpoint_buff) {
                             exit_status = 1;
