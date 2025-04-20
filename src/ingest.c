@@ -26,7 +26,7 @@ typedef struct {
     bool video_live;
     char *title, *author, *description, *video_id, *video_url, *video_thumbnail, *video_length, *owner_profile_url,
         *category, *publish_date, *transcript;
-    char **keywords;
+    const char **keywords;
     unsigned long long view_count;
     struct {
         char *filename;
@@ -748,15 +748,7 @@ int ingest(const char *url, struct YtingestOpt *opt) {
             cJSON *keyword;
             cJSON_ArrayForEach(keyword, keywords) {
                 if (cJSON_IsString(keyword) && !isempty(keyword->valuestring)) {
-                    size_t keyword_len = strlen(keyword->valuestring);
-                    yt.keywords[index] = malloc(keyword_len + 1);
-                    if (!yt.keywords[index]) {
-                        for (int i = 0; i < index; i++) free(yt.keywords[i]);
-                        free(yt.keywords);
-                        goto done;
-                    }
-                    strncpy(yt.keywords[index], keyword->valuestring, keyword_len + 1);
-                    index++;
+                    yt.keywords[index++] = keyword->valuestring;
                 }
             }
         }
@@ -904,10 +896,7 @@ done:
     if (yt.transcript) free(yt.transcript);
     if (yt.video_url) free(yt.video_url);
     if (yt.owner_profile_url) free(yt.owner_profile_url);
-    if (yt.keywords) {
-        for (size_t i = 0; i < yt.ctx.keywords_size; i++) free(yt.keywords[i]);
-        free(yt.keywords);
-    }
+    if (yt.keywords) free(yt.keywords);
     if (yt.description) free(yt.description);
     free(yt.ctx.filename);
 
