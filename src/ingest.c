@@ -59,6 +59,17 @@ static char *mstrcasestr(const char *haystack, const char *needle) {
     return NULL;
 }
 
+static char *mstrdup(const char *value) {
+    if (!value) return NULL;
+    size_t size = strlen(value);
+    void *new_value = malloc(size + 1);
+    if (!new_value) {
+        printf("Failed to allocate memory - %d\n", __LINE__);
+        return NULL;
+    }
+    return (char *)memcpy(new_value, value, size + 1);
+}
+
 /**
  * Checks if a pattern string is present within a comma-separated list of exclusion strings.
  *
@@ -184,7 +195,7 @@ static char *extract(const char *raw_content) {
             printf("Failed to allocate memory - %d\n", __LINE__);
             return NULL;
         }
-        strncpy(player_buff, raw_content + matches[1].rm_so, player_size + 1);
+        snprintf(player_buff, player_size + 1, "%s", raw_content + matches[1].rm_so);
         regfree(&regex);
         return player_buff;
     }
@@ -287,10 +298,7 @@ static char *toparagraph(char *json_str) {
     cJSON *root = cJSON_Parse(json_str);
     if (!root) {
         printf("%sERROR:%s Invalid language code\n", ANSI_ERROR, ANSI_RESET);
-        char *lang_buff = malloc(13);
-        if (!lang_buff) return NULL;
-        strcpy(lang_buff, "INVALID_LANG");
-        return lang_buff;
+        return mstrdup("INVALID_LANG");
     }
 
     cJSON *events = cJSON_GetObjectItem(root, "events");
@@ -300,6 +308,7 @@ static char *toparagraph(char *json_str) {
         return NULL;
     }
 
+    size_t current_len = 0;
     size_t transcript_size = 1;
     char *transcript_buff = malloc(transcript_size);
     if (!transcript_buff) {
@@ -318,28 +327,38 @@ static char *toparagraph(char *json_str) {
                 cJSON *utf8 = cJSON_GetObjectItem(segment, "utf8");
                 if (cJSON_IsString(utf8) && !isempty(utf8->valuestring)) {
                     size_t text_len = strlen(utf8->valuestring);
-                    size_t extra = utf8->valuestring[text_len - 1] != ' ' ? 1 : 0;
-                    char *tmp = realloc(transcript_buff, transcript_size + text_len + extra);
-                    if (!tmp) {
-                        printf("Failed to reallocate memory - %d\n", __LINE__);
-                        free(transcript_buff);
-                        cJSON_Delete(root);
-                        return NULL;
+                    int ws_extra = (current_len > 0 && transcript_buff[current_len - 1] != ' ');
+                    size_t ws_len = ws_extra ? 1 : 0;
+                    size_t realloc_size = current_len + ws_len + text_len + 1;
+                    if (realloc_size > transcript_size) {
+                        char *tmp = realloc(transcript_buff, realloc_size);
+                        if (!tmp) {
+                            printf("Failed to reallocate memory - %d\n", __LINE__);
+                            free(transcript_buff);
+                            cJSON_Delete(root);
+                            return NULL;
+                        }
+                        transcript_buff = tmp;
+                        transcript_size = realloc_size;
                     }
-                    transcript_buff = tmp;
-                    strcat(transcript_buff, utf8->valuestring);
-                    if (extra == 1) strcat(transcript_buff, " ");
-                    transcript_size += text_len + extra;
-                } else {
-                    continue;
+                    if (ws_extra) {
+                        transcript_buff[current_len] = ' ';
+                        current_len++;
+                    }
+                    memcpy(transcript_buff + current_len, utf8->valuestring, text_len);
+                    current_len += text_len;
+                    transcript_buff[current_len] = '\0';
                 }
             }
-        } else {
-            continue;
         }
     }
 
     cJSON_Delete(root);
+
+    // Trim the buffer to the right size
+    // If this fails, the original buffer is still valid
+    char *final_buff = realloc(transcript_buff, current_len + 1);
+    if (final_buff) transcript_buff = final_buff;
 
     return transcript_buff;
 }
@@ -696,25 +715,10 @@ int ingest(const char *url, struct YtingestOpt *opt) {
         if (cJSON_IsString(description) && !isempty(description->valuestring)) {
             if (strcmp(opt->format, "json") == 0) {
                 char *tmp_buff = normalize(description->valuestring);
-                size_t tmp_buff_len = strlen(tmp_buff);
-                yt.description = malloc(tmp_buff_len + 1);
-                if (!yt.description) {
-                    exit_status = 1;
-                    printf("Failed to allocate memory - %d\n", __LINE__);
-                    free(tmp_buff);
-                    goto done;
-                }
-                strncpy(yt.description, tmp_buff, tmp_buff_len + 1);
+                yt.description = mstrdup(tmp_buff);
                 free(tmp_buff);
             } else {
-                size_t tmp_buff_len = strlen(description->valuestring);
-                yt.description = malloc(tmp_buff_len + 1);
-                if (!yt.description) {
-                    exit_status = 1;
-                    printf("Failed to allocate memory - %d\n", __LINE__);
-                    goto done;
-                }
-                strncpy(yt.description, description->valuestring, tmp_buff_len + 1);
+                yt.description = mstrdup(description->valuestring);
             }
         }
     }
@@ -849,24 +853,10 @@ int ingest(const char *url, struct YtingestOpt *opt) {
                                 if (strcmp(transcript, "INVALID_LANG") != 0) {
                                     if (strcmp(opt->format, "json") == 0) {
                                         char *tmp_buff = normalize(transcript);
-                                        size_t tmp_buff_len = strlen(tmp_buff);
-                                        yt.transcript = malloc(tmp_buff_len + 1);
-                                        if (!yt.transcript) {
-                                            exit_status = 1;
-                                            printf("Failed to allocate memory - %d\n", __LINE__);
-                                            goto done;
-                                        }
-                                        strncpy(yt.transcript, tmp_buff, tmp_buff_len + 1);
+                                        yt.transcript = mstrdup(tmp_buff);
                                         free(tmp_buff);
                                     } else {
-                                        size_t tmp_len = strlen(transcript);
-                                        yt.transcript = malloc(tmp_len + 1);
-                                        if (!yt.transcript) {
-                                            exit_status = 1;
-                                            printf("Failed to allocate memory - %d\n", __LINE__);
-                                            goto done;
-                                        }
-                                        strncpy(yt.transcript, transcript, tmp_len + 1);
+                                        yt.transcript = mstrdup(transcript);
                                     }
                                 }
                                 free(transcript);
