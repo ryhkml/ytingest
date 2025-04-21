@@ -25,12 +25,7 @@ jobs:
           ./nob
       - name: Execute
         run: |
-          ./out/ytingest "https://www.youtube.com/watch?v=OeYnV9zp7Dk"
-          ls -hl yt_OeYnV9zp7Dk.txt
-          ./out/ytingest --format json "https://www.youtube.com/watch?v=OeYnV9zp7Dk"
-          ls -hl yt_OeYnV9zp7Dk.json
-          ./out/ytingest --format md -T gpt-4o-mini "https://www.youtube.com/watch?v=OeYnV9zp7Dk"
-          ls -hl yt_OeYnV9zp7Dk.md
+          ./out/ytingest -h
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
