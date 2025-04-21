@@ -24,7 +24,7 @@ git submodule update --init --recursive
 Then initiate the build process:
 
 ```sh
-cc -o nob nob.c
+gcc -o nob nob.c
 ./nob
 ```
 
