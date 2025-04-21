@@ -718,7 +718,7 @@ int ingest(const char *url, struct YtingestOpt *opt) {
                 yt.description = mstrdup(tmp_buff);
                 free(tmp_buff);
             } else {
-                yt.description = mstrdup(description->valuestring);
+                yt.description = description->valuestring;
             }
         }
     }
@@ -856,7 +856,7 @@ int ingest(const char *url, struct YtingestOpt *opt) {
                                         yt.transcript = mstrdup(tmp_buff);
                                         free(tmp_buff);
                                     } else {
-                                        yt.transcript = mstrdup(transcript);
+                                        yt.transcript = transcript;
                                     }
                                 }
                                 free(transcript);
@@ -883,11 +883,13 @@ done:
         fclose(file);
     }
 
-    if (yt.transcript) free(yt.transcript);
+    if (strcmp(opt->format, "json") == 0) {
+        free(yt.transcript);
+        free(yt.description);
+    }
     if (yt.video_url) free(yt.video_url);
     if (yt.owner_profile_url) free(yt.owner_profile_url);
     if (yt.keywords) free(yt.keywords);
-    if (yt.description) free(yt.description);
     free(yt.ctx.filename);
 
     cJSON_Delete(root);
