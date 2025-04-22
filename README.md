@@ -46,7 +46,7 @@ There are options listed:
 
 | Option                | Default Value | Description                                                                          |
 | --------------------- | ------------- | ------------------------------------------------------------------------------------ |
-| `-e`, `--excludes`    |               | Specify YouTube metadata fields to exclude (comma-separated)                         |
+| `-e`, `--exclude`     |               | Specify YouTube metadata fields to exclude (comma-separated)                         |
 | `--format`            | txt           | Specify the output file format                                                       |
 | `--lang`              | en            | Specify language code for transcript translation                                     |
 | `--lang-available`    |               | Display available transcript translation languages                                   |
