@@ -325,6 +325,8 @@ static char *toparagraph(char *json_str) {
             cJSON *segment;
             cJSON_ArrayForEach(segment, segments) {
                 cJSON *utf8 = cJSON_GetObjectItem(segment, "utf8");
+                // TODO: Add timestamp to the transcript
+                // And then transform as query parameter => youtube.com/watch?v=OeYnV9zp7Dk&t=<TIMESTAMP>
                 if (cJSON_IsString(utf8) && !isempty(utf8->valuestring)) {
                     size_t text_len = strlen(utf8->valuestring);
                     int ws_extra = (current_len > 0 && transcript_buff[current_len - 1] != ' ');
@@ -459,9 +461,20 @@ static void token_count(FILE *file, const char *model) {
     }
 
     size_t token = 0;
+    /**
+     * Get the Core BPE tokenizer configuration specific to the provided language model.
+     * This object contains the rules needed for tokenization.
+     *
+     * Reference BPE: https://en.wikipedia.org/wiki/Byte_pair_encoding
+     */
     CoreBPE *bpe = tiktoken_get_bpe_from_model(model);
+    /**
+     * Encode the text content stored in `file_buff` into a sequence of token IDs.
+     * This function uses the previously obtained BPE configuration and ensures
+     * hat any special tokens (like <|endoftext|>, etc.) present in the text
+     * are handled according to the model's definition.
+     */
     tiktoken_corebpe_encode_with_special_tokens(bpe, file_buff, &token);
-
     if (token > 0) {
         printf("%sOK:%s Approximately %zu tokens for the %s model\n", ANSI_INFO, ANSI_RESET, token, model);
     } else {
