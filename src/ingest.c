@@ -23,15 +23,16 @@ typedef struct {
 } Memory;
 
 typedef struct {
+    const char **items;
+    size_t size;
+} Keyword;
+
+typedef struct {
     bool video_live;
     char *title, *author, *description, *video_id, *video_url, *video_thumbnail, *video_length, *owner_profile_url,
         *category, *publish_date, *transcript;
-    const char **keywords;
+    Keyword keyword;
     unsigned long long view_count;
-    struct {
-        char *filename;
-        size_t keywords_size;
-    } ctx;
 } Ytingest;
 
 /**
@@ -509,11 +510,11 @@ static void write_yt(FILE *file, const Ytingest *yt, const char *format) {
         cJSON_AddStringToObject(root, "title", yt->title);
         if (yt->author) cJSON_AddStringToObject(root, "author", yt->author);
         if (yt->description) cJSON_AddStringToObject(root, "description", yt->description);
-        if (yt->keywords) {
+        if (yt->keyword.items) {
             cJSON *keywords = cJSON_AddArrayToObject(root, "keywords");
             cJSON *keyword;
-            for (size_t i = 0; i < yt->ctx.keywords_size; i++) {
-                cJSON_AddItemToArray(keywords, keyword = cJSON_CreateString(yt->keywords[i]));
+            for (size_t i = 0; i < yt->keyword.size; i++) {
+                cJSON_AddItemToArray(keywords, keyword = cJSON_CreateString(yt->keyword.items[i]));
             }
         }
         if (yt->owner_profile_url) cJSON_AddStringToObject(root, "owner_profile_url", yt->owner_profile_url);
@@ -543,10 +544,10 @@ static void write_yt(FILE *file, const Ytingest *yt, const char *format) {
             fprintf(file, "\n%s", yt->description);
             fprintf(file, "\n```");
         }
-        if (yt->keywords) {
+        if (yt->keyword.items) {
             fprintf(file, "\n\n## Keywords");
-            for (size_t i = 0; i < yt->ctx.keywords_size; i++) {
-                fprintf(file, "\n- %s", yt->keywords[i]);
+            for (size_t i = 0; i < yt->keyword.size; i++) {
+                fprintf(file, "\n- %s", yt->keyword.items[i]);
             }
         }
         if (yt->transcript) {
@@ -569,10 +570,10 @@ static void write_yt(FILE *file, const Ytingest *yt, const char *format) {
             fprintf(file, "\n%s", yt->description);
             fprintf(file, "\n\"\"\"");
         }
-        if (yt->keywords) {
+        if (yt->keyword.items) {
             fprintf(file, "\n\nKeywords:");
-            for (size_t i = 0; i < yt->ctx.keywords_size; i++) {
-                fprintf(file, "\n- %s", yt->keywords[i]);
+            for (size_t i = 0; i < yt->keyword.size; i++) {
+                fprintf(file, "\n- %s", yt->keyword.items[i]);
             }
         }
         if (yt->owner_profile_url) fprintf(file, "\n\nOwner Profile URL: %s", yt->owner_profile_url);
@@ -673,6 +674,7 @@ int ingest(const char *url, struct YtingestOpt *opt) {
     cJSON *video_id = cJSON_GetObjectItem(video_details, "videoId");
 
     FILE *file;
+    char *filename;
     if (opt->output_path) {
         trim(opt->output_path);
         const char *output_path_fmt = NULL;
@@ -685,30 +687,29 @@ int ingest(const char *url, struct YtingestOpt *opt) {
         }
         size_t output_path_size =
             snprintf(NULL, 0, output_path_fmt, opt->output_path, video_id->valuestring, opt->format);
-        yt.ctx.filename = malloc(output_path_size + 1);
-        if (!yt.ctx.filename) {
+        filename = malloc(output_path_size + 1);
+        if (!filename) {
             printf("Failed to allocate memory - %d\n", __LINE__);
             cJSON_Delete(root);
             return 1;
         }
-        snprintf(yt.ctx.filename, output_path_size + 1, output_path_fmt, opt->output_path, video_id->valuestring,
-                 opt->format);
-        file = fopen(yt.ctx.filename, "w+");
+        snprintf(filename, output_path_size + 1, output_path_fmt, opt->output_path, video_id->valuestring, opt->format);
+        file = fopen(filename, "w+");
     } else {
         const char *output_path_fmt = "yt_%s.%s";
         size_t output_path_size = snprintf(NULL, 0, output_path_fmt, video_id->valuestring, opt->format);
-        yt.ctx.filename = malloc(output_path_size + 1);
-        if (!yt.ctx.filename) {
+        filename = malloc(output_path_size + 1);
+        if (!filename) {
             printf("Failed to allocate memory - %d\n", __LINE__);
             cJSON_Delete(root);
             return 1;
         }
-        snprintf(yt.ctx.filename, output_path_size + 1, "yt_%s.%s", video_id->valuestring, opt->format);
-        file = fopen(yt.ctx.filename, "w+");
+        snprintf(filename, output_path_size + 1, "yt_%s.%s", video_id->valuestring, opt->format);
+        file = fopen(filename, "w+");
     }
     if (!file) {
         printf("Failed to create file\n");
-        free(yt.ctx.filename);
+        free(filename);
         cJSON_Delete(root);
         return 1;
     }
@@ -755,9 +756,9 @@ int ingest(const char *url, struct YtingestOpt *opt) {
     if (isinclude(opt->exclude, "keywords")) {
         cJSON *keywords = cJSON_GetObjectItem(video_details, "keywords");
         if (cJSON_IsArray(keywords) && cJSON_GetArraySize(keywords) > 0) {
-            yt.ctx.keywords_size = cJSON_GetArraySize(keywords);
-            yt.keywords = malloc(yt.ctx.keywords_size * sizeof(char *));
-            if (!yt.keywords) {
+            yt.keyword.size = cJSON_GetArraySize(keywords);
+            yt.keyword.items = malloc(yt.keyword.size * sizeof(char *));
+            if (!yt.keyword.items) {
                 exit_status = 1;
                 goto done;
             }
@@ -765,7 +766,7 @@ int ingest(const char *url, struct YtingestOpt *opt) {
             cJSON *keyword;
             cJSON_ArrayForEach(keyword, keywords) {
                 if (cJSON_IsString(keyword) && !isempty(keyword->valuestring)) {
-                    yt.keywords[index++] = keyword->valuestring;
+                    yt.keyword.items[index++] = keyword->valuestring;
                 }
             }
         }
@@ -888,11 +889,11 @@ int ingest(const char *url, struct YtingestOpt *opt) {
 done:
     if (exit_status) {
         fclose(file);
-        remove(yt.ctx.filename);
+        remove(filename);
     } else {
         write_yt(file, &yt, opt->format);
         if (opt->token_count) token_count(file, opt->token_count);
-        printf("%sOK:%s Output file has been created in %s\n", ANSI_INFO, ANSI_RESET, yt.ctx.filename);
+        printf("%sOK:%s Output file has been created in %s\n", ANSI_INFO, ANSI_RESET, filename);
         fclose(file);
     }
 
@@ -902,8 +903,8 @@ done:
     }
     if (yt.video_url) free(yt.video_url);
     if (yt.owner_profile_url) free(yt.owner_profile_url);
-    if (yt.keywords) free(yt.keywords);
-    free(yt.ctx.filename);
+    if (yt.keyword.items) free(yt.keyword.items);
+    free(filename);
 
     cJSON_Delete(root);
 
