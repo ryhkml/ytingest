@@ -57,10 +57,17 @@ There are options listed:
 
 > [!NOTE]
 >
-> If ytingest cannot access the shared object file, set the `LD_LIBRARY_PATH` env temporarily or permanently by running the following command in the project directory:
+> 1. If ytingest cannot access the shared object file, set the `LD_LIBRARY_PATH` env temporarily or permanently by running the following command in the project directory:
 >
 > ```sh
 > export LD_LIBRARY_PATH="$(pwd)/src/tiktoken-c/target/release:$LD_LIBRARY_PATH"
+> ```
+>
+> 2. If there is a classic character encoding mismatch problem, set the `LANG` and `LC_ALL` env in .bashrc:
+>
+> ```sh
+> export LANG="en_US.UTF-8"
+> export LC_ALL="en_US.UTF-8"
 > ```
 
 ## Formatter
