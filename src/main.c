@@ -37,7 +37,7 @@ static void print_help() {
 
 int main(int argc, char *argv[]) {
     struct option init_opt[] = {
-        {"excludes",       required_argument, NULL, 'e'},
+        {"exclude",        required_argument, NULL, 'e'},
         {"lang",           required_argument, NULL, 0  },
         {"lang-available", no_argument,       NULL, 0  },
         {"format",         required_argument, NULL, 0  },
