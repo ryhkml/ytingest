@@ -903,7 +903,10 @@ done:
     }
     if (yt.video_url) free(yt.video_url);
     if (yt.owner_profile_url) free(yt.owner_profile_url);
-    if (yt.keyword.items) free(yt.keyword.items);
+    if (yt.keyword.items) {
+        free(yt.keyword.items);
+        yt.keyword.size = 0;
+    }
     free(filename);
 
     cJSON_Delete(root);
