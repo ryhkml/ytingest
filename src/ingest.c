@@ -268,6 +268,12 @@ static void trim(char *text) {
     text[new_len] = '\0';
 }
 
+/**
+ * WARNING: `tohttps()` strictly assumes the input URL always begins with http://.
+ * It does not handle https://, relative URLs, or URLs without a scheme.
+ * This assumption is based on the current format of YouTube response
+ * for the relevant field. If the response changes, this may fail💀
+ */
 static char *tohttps(const char *url) {
     if (!url) return NULL;
     // 7 length of http://
@@ -284,15 +290,7 @@ static char *tohttps(const char *url) {
 
 static void tolowercase(char *text) {
     if (!text) return;
-    const char diff = 'a' - 'A';
-    while (*text) {
-        // Check if the character is an ASCII uppercase letter
-        if (*text >= 'A' && *text <= 'Z') {
-            // Convert to lowercase by adding the ASCII difference
-            *text = *text + diff;
-        }
-        text++;
-    }
+    for (; *text; text++) *text = tolower((unsigned char)*text);
 }
 
 static char *toparagraph(char *json_str) {
