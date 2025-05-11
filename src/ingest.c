@@ -657,17 +657,18 @@ int ingest(const char *url, struct YtingestOpt *opt) {
 
     Ytingest yt = {0};
 
-    tolowercase(opt->format);
-
-    const char *FORMAT_LIST[] = {"json", "txt", "md", NULL};
-    int fallback_format = 0;
-    for (int i = 0; FORMAT_LIST[i] != NULL; i++) {
-        if (strcmp(FORMAT_LIST[i], opt->format) == 0) {
-            fallback_format = 1;
-            break;
+    if (strcmp(opt->format, "txt") != 0) {
+        tolowercase(opt->format);
+        const char *FORMAT_LIST[] = {"json", "txt", "md", NULL};
+        int fallback_format = 0;
+        for (int i = 0; FORMAT_LIST[i] != NULL; i++) {
+            if (strcmp(FORMAT_LIST[i], opt->format) == 0) {
+                fallback_format = 1;
+                break;
+            }
         }
+        if (fallback_format == 0) opt->format = "txt";
     }
-    if (fallback_format == 0) opt->format = "txt";
 
     cJSON *video_id = cJSON_GetObjectItem(video_details, "videoId");
 
