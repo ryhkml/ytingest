@@ -13,7 +13,7 @@ static void print_help() {
     printf("  -e, --exclude <str,str,...>   Specify YouTube metadata fields to exclude (comma-separated)\n");
     printf("                                Available: author, description, keywords, owner_profile_url,\n");
     printf("                                           video_url, video_thumbnail, video_length, category,\n");
-    printf("                                           publish_date, view_count, and transcript\n");
+    printf("                                           publish_date, view_count, transcript, and timestamp_url\n");
     printf("  --format <str>                Specify the output file format (Default: txt)\n");
     printf("                                Available: json, md, and txt\n");
     printf("  --lang <str>                  Specify language code for transcript translation (Default: en)\n");

@@ -250,22 +250,26 @@ static char *normalize(const char *text) {
     return output_buff;
 }
 
+static void rtrim(char *text) {
+    if (!text) return;
+
+    char *end = text + strlen(text) - 1;
+    while (end >= text && isspace((unsigned char)*end)) end--;
+    *(end + 1) = '\0';
+}
+
 static void trim(char *text) {
     if (!text) return;
 
     char *start = text;
-    char *end;
     while (isspace((unsigned char)*start)) start++;
     if (*start == '\0') {
         text[0] = '\0';
         return;
     }
 
-    end = start + strlen(start) - 1;
-    while (end > start && isspace((unsigned char)*end)) end--;
-    int new_len = end - start + 1;
-    memmove(text, start, new_len);
-    text[new_len] = '\0';
+    memmove(text, start, strlen(start) + 1);
+    rtrim(text);
 }
 
 /**
@@ -293,7 +297,74 @@ static void tolowercase(char *text) {
     for (; *text; text++) *text = tolower((unsigned char)*text);
 }
 
-static char *toparagraph(char *json_str) {
+static char *time_yt(uint16_t video_len, char *buff, size_t size) {
+    if (video_len == 0) {
+        snprintf(buff, size, "0:00");
+    } else if (video_len < 3600) {
+        int minutes = video_len / 60;
+        int seconds = video_len % 60;
+        snprintf(buff, size, "%d:%02d", minutes, seconds);
+    } else {
+        int hours = video_len / 3600;
+        int minutes = (video_len / 60) % 60;
+        int seconds = video_len % 60;
+        snprintf(buff, size, "%d:%02d:%02d", hours, minutes, seconds);
+    }
+    return buff;
+}
+
+static char *join(const cJSON *root) {
+    if (!root) return NULL;
+    size_t total_calculated_len = 0;
+    int lines_to_render_count = 0;
+    int outer_arr_size = cJSON_GetArraySize(root);
+
+    // Phase 1, calculate total length needed
+    for (int i = 0; i < outer_arr_size; i++) {
+        cJSON *inner_arr = cJSON_GetArrayItem(root, i);
+        int inner_items_size = cJSON_GetArraySize(inner_arr);
+        for (int j = 0; j < inner_items_size; j++) {
+            cJSON *item = cJSON_GetArrayItem(inner_arr, j);
+            total_calculated_len += strlen(item->valuestring);
+            lines_to_render_count++;
+        }
+    }
+
+    if (lines_to_render_count == 0) return NULL;
+    if (lines_to_render_count > 1) total_calculated_len += (lines_to_render_count - 1);
+
+    char *result_buff = malloc(total_calculated_len + 1);
+    if (!result_buff) return NULL;
+    char *current_pos = result_buff;
+
+    // Phase 2, construct the final string
+    int parts_rendered = 0;
+    for (int i = 0; i < outer_arr_size; i++) {
+        cJSON *inner_arr = cJSON_GetArrayItem(root, i);
+        int inner_items_size = cJSON_GetArraySize(inner_arr);
+        for (int j = 0; j < inner_items_size; j++) {
+            cJSON *item = cJSON_GetArrayItem(inner_arr, j);
+            size_t part_len = strlen(item->valuestring);
+            if (part_len > 0) {
+                memcpy(current_pos, item->valuestring, part_len);
+                current_pos += part_len;
+            }
+            parts_rendered++;
+        }
+    }
+
+    *current_pos = '\0';
+    return result_buff;
+}
+
+static void replace_newline(char *text) {
+    if (!text) return;
+    for (int i = 0; text[i] != '\0'; i++) {
+        if (text[i] == '\n' || text[i] == '\r') text[i] = ' ';
+    }
+}
+
+static char *parse_transcript(char *json_str, const Ytingest *yt, const struct YtingestOpt *opt) {
     cJSON *root = cJSON_Parse(json_str);
     if (!root) {
         printf("%sERROR:%s Invalid language code\n", ANSI_ERROR, ANSI_RESET);
@@ -307,61 +378,98 @@ static char *toparagraph(char *json_str) {
         return NULL;
     }
 
-    size_t current_len = 0;
-    size_t transcript_size = 1;
-    char *transcript_buff = malloc(transcript_size);
-    if (!transcript_buff) {
-        printf("Failed to allocate memory - %d\n", __LINE__);
-        cJSON_Delete(root);
-        return NULL;
-    }
-    transcript_buff[0] = '\0';
+    const bool ismd = strcmp(opt->format, "md") == 0;
 
-    cJSON *event;
-    cJSON_ArrayForEach(event, events) {
-        cJSON *segments = cJSON_GetObjectItem(event, "segs");
-        if (cJSON_IsArray(segments)) {
-            cJSON *segment;
-            cJSON_ArrayForEach(segment, segments) {
-                cJSON *utf8 = cJSON_GetObjectItem(segment, "utf8");
-                // TODO: Add timestamp to the transcript
-                // And then transform as query parameter => youtube.com/watch?v=OeYnV9zp7Dk&t=<TIMESTAMP>
-                if (cJSON_IsString(utf8) && !isempty(utf8->valuestring)) {
-                    size_t text_len = strlen(utf8->valuestring);
-                    int ws_extra = (current_len > 0 && transcript_buff[current_len - 1] != ' ');
-                    size_t ws_len = ws_extra ? 1 : 0;
-                    size_t realloc_size = current_len + ws_len + text_len + 1;
-                    if (realloc_size > transcript_size) {
-                        char *tmp = realloc(transcript_buff, realloc_size);
-                        if (!tmp) {
-                            printf("Failed to reallocate memory - %d\n", __LINE__);
-                            free(transcript_buff);
-                            cJSON_Delete(root);
-                            return NULL;
-                        }
-                        transcript_buff = tmp;
-                        transcript_size = realloc_size;
-                    }
-                    if (ws_extra) {
-                        transcript_buff[current_len] = ' ';
-                        current_len++;
-                    }
-                    memcpy(transcript_buff + current_len, utf8->valuestring, text_len);
-                    current_len += text_len;
-                    transcript_buff[current_len] = '\0';
-                }
+    bool invalid_text = false;
+    int index = 0;
+
+    cJSON *new_arr = cJSON_CreateArray();
+    cJSON *segment = NULL;
+    cJSON_ArrayForEach(segment, events) {
+        cJSON *segments = cJSON_GetObjectItem(segment, "segs");
+        int segment_size = cJSON_GetArraySize(segments);
+        if (segment_size == 1) {
+            cJSON *first = cJSON_GetArrayItem(segments, 0);
+            cJSON *text = cJSON_GetObjectItem(first, "utf8");
+            if (strcmp(text->valuestring, "\n") == 0) {
+                index++;
+                continue;
             }
         }
+
+        cJSON *tstartms = cJSON_GetObjectItem(segment, "tStartMs");
+        uint16_t seconds = (uint16_t)(tstartms->valuedouble / 1000.0);
+        char time_tmp[9];
+        char *time = time_yt(seconds, time_tmp, sizeof(time_tmp));
+
+        cJSON *new_sec_arr = cJSON_CreateArray();
+
+        if (ismd) {
+            cJSON *prefix = cJSON_CreateString("-");
+            cJSON_AddItemToArray(new_sec_arr, prefix);
+        }
+
+        const char *timestamp_fmt = NULL;
+        char *timestamp_buff;
+
+        // NOTE!
+        // Some YouTube videos may use a different transcript format.
+        // English transcripts typically start at 0 seconds, with no further transcript available.
+        // The effect of this format on all YouTube videos is unclear.
+        if (isinclude(opt->exclude, "timestamp_url") && mstrcasestr(yt->video_url, "https://www.youtube.com/watch")) {
+            timestamp_fmt = "%s[[%s]](https://www.youtube.com/watch?v=%s&t=%ds) ";
+            size_t timestamp_size = snprintf(NULL, 0, timestamp_fmt, ismd ? " " : "", time, yt->video_id, seconds);
+            timestamp_buff = malloc(timestamp_size + 1);
+            if (!timestamp_buff) {
+                printf("Failed to allocate memory - %d\n", __LINE__);
+                return NULL;
+            }
+            snprintf(timestamp_buff, timestamp_size + 1, timestamp_fmt, ismd ? " " : "", time, yt->video_id, seconds);
+        } else {
+            timestamp_fmt = "%s[%s] ";
+            size_t timestamp_size = snprintf(NULL, 0, timestamp_fmt, ismd ? " " : "", time);
+            timestamp_buff = malloc(timestamp_size + 1);
+            if (!timestamp_buff) {
+                printf("Failed to allocate memory - %d\n", __LINE__);
+                return NULL;
+            }
+            snprintf(timestamp_buff, timestamp_size + 1, timestamp_fmt, ismd ? " " : "", time);
+        }
+
+        cJSON *timestamp = cJSON_CreateString(timestamp_buff);
+        cJSON_AddItemToArray(new_sec_arr, timestamp);
+
+        free(timestamp_buff);
+
+        cJSON *utf8 = NULL;
+        cJSON_ArrayForEach(utf8, segments) {
+            cJSON *text = cJSON_GetObjectItem(utf8, "utf8");
+            replace_newline(text->valuestring);
+            if (strlen(text->valuestring) == 1 || isempty(text->valuestring)) {
+                invalid_text = true;
+            } else {
+                cJSON *text_str = cJSON_CreateString(text->valuestring);
+                cJSON_AddItemToArray(new_sec_arr, text_str);
+            }
+        }
+
+        if (invalid_text) {
+            cJSON_DeleteItemFromArray(new_sec_arr, index);
+            invalid_text = false;
+        } else {
+            cJSON *newline = cJSON_CreateString("\n");
+            cJSON_AddItemToArray(new_sec_arr, newline);
+            cJSON_AddItemToArray(new_arr, new_sec_arr);
+        }
+
+        index++;
     }
 
+    char *result = join(new_arr);
+    rtrim(result);
+
     cJSON_Delete(root);
-
-    // Trim the buffer to the right size
-    // If this fails, the original buffer is still valid
-    char *final_buff = realloc(transcript_buff, current_len + 1);
-    if (final_buff) transcript_buff = final_buff;
-
-    return transcript_buff;
+    return result;
 }
 
 /**
@@ -486,21 +594,6 @@ done:
     free(file_buff);
 }
 
-static char *time_yt(uint16_t video_len, char *buff, size_t size) {
-    if (video_len == 0) return NULL;
-    if (video_len < 3600) {
-        int minutes = video_len / 60;
-        int seconds = video_len % 60;
-        snprintf(buff, size, "%d:%02d", minutes, seconds);
-    } else {
-        int hours = video_len / 3600;
-        int minutes = (video_len / 60) % 60;
-        int seconds = video_len % 60;
-        snprintf(buff, size, "%d:%02d:%02d", hours, minutes, seconds);
-    }
-    return buff;
-}
-
 static void write_yt(FILE *file, const Ytingest *yt, const char *format) {
     if (strcmp(format, "json") == 0) {
         cJSON *root = cJSON_CreateObject();
@@ -550,9 +643,7 @@ static void write_yt(FILE *file, const Ytingest *yt, const char *format) {
         }
         if (yt->transcript) {
             fprintf(file, "\n\n## Transcript");
-            fprintf(file, "\n```");
             fprintf(file, "\n%s", yt->transcript);
-            fprintf(file, "\n```");
         }
         fprintf(file, "\n");
         fprintf(file, "\n---");
@@ -739,8 +830,8 @@ int ingest(const char *url, struct YtingestOpt *opt) {
     if (isinclude(opt->exclude, "video_length")) {
         cJSON *video_length = cJSON_GetObjectItem(video_details, "lengthSeconds");
         if (cJSON_IsString(video_length) && !isempty(video_length->valuestring)) {
-            char time[9];
-            yt.video_length = time_yt(atoi(video_length->valuestring), time, sizeof(time));
+            char tmp[9];
+            yt.video_length = time_yt((uint16_t)atoi(video_length->valuestring), tmp, sizeof(tmp));
         }
     }
 
@@ -861,7 +952,7 @@ int ingest(const char *url, struct YtingestOpt *opt) {
                         snprintf(endpoint_buff, endpoint_size + 1, endpoint_fmt, base_url->valuestring, opt->lang);
                         char *raw_transcript = fetch(endpoint_buff, RF_JSON, NULL);
                         if (raw_transcript) {
-                            char *transcript = toparagraph(raw_transcript);
+                            char *transcript = parse_transcript(raw_transcript, &yt, opt);
                             if (transcript) {
                                 if (strcmp(transcript, "INVALID_LANG") != 0) {
                                     if (strcmp(opt->format, "json") == 0) {
@@ -869,7 +960,7 @@ int ingest(const char *url, struct YtingestOpt *opt) {
                                         yt.transcript = mstrdup(tmp_buff);
                                         free(tmp_buff);
                                     } else {
-                                        yt.transcript = transcript;
+                                        yt.transcript = mstrdup(transcript);
                                     }
                                 }
                                 free(transcript);
@@ -897,8 +988,10 @@ done:
     }
 
     if (strcmp(opt->format, "json") == 0) {
-        free(yt.transcript);
-        free(yt.description);
+        if (yt.transcript) free(yt.transcript);
+        if (yt.description) free(yt.description);
+    } else {
+        if (yt.transcript) free(yt.transcript);
     }
     if (yt.video_url) free(yt.video_url);
     if (yt.owner_profile_url) free(yt.owner_profile_url);
