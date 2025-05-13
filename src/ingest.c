@@ -141,30 +141,31 @@ static char *fetch(const char *url, const RawFormat raw_format, const char *body
     Memory chunk = {0};
     CURLcode res;
 
-    const char *HEADER_LIST[] = {
-        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language: en-US,en;q=0.5",
-        "Cache-Control: no-cache, no-store, must-revalidate",
-        "Connection: keep-alive",
-        NULL,
-    };
     struct curl_slist *headers = NULL;
+
     if (raw_format == RF_JSON) {
         headers = curl_slist_append(headers, "Accept: application/json");
-        headers = curl_slist_append(headers, HEADER_LIST[2]);
+        headers = curl_slist_append(headers, "Cache-Control: no-cache, no-store, must-revalidate");
         headers = curl_slist_append(headers, "Content-Type: application/json");
     } else {
-        for (int i = 0; HEADER_LIST[i] != NULL; i++) {
-            headers = curl_slist_append(headers, HEADER_LIST[i]);
-        }
+        headers = curl_slist_append(
+            headers,
+            "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8");
+        headers = curl_slist_append(headers, "Accept-Language: en;q=0.8");
+        headers = curl_slist_append(headers, "Cache-Control: max-age=0");
+        headers = curl_slist_append(headers, "Sec-Fetch-Dest: document");
+        headers = curl_slist_append(headers, "Sec-Fetch-Mode: navigate");
+        headers = curl_slist_append(headers, "Sec-Fetch-Site: same-origin");
+        headers = curl_slist_append(headers, "Priority: u=0, i");
+        headers = curl_slist_append(headers, "Upgrade-Insecure-Requests: 1");
     }
 
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-    if (raw_format != RF_JSON)
-        curl_easy_setopt(curl, CURLOPT_USERAGENT,
-                         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
-                         "Chrome/135.0.0.0 Safari/537.36");
+    if (raw_format == RF_PLAINTEXT)
+        curl_easy_setopt(
+            curl, CURLOPT_USERAGENT,
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36");
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_cb);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&chunk);
     if (body) curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body);
