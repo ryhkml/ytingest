@@ -382,6 +382,7 @@ static char *parse_transcript(char *json_str, const Ytingest *yt, const struct Y
     const bool ismd = strcmp(opt->format, "md") == 0;
 
     bool invalid_text = false;
+    char *result = NULL;
     int index = 0;
 
     cJSON *new_arr = cJSON_CreateArray();
@@ -423,7 +424,7 @@ static char *parse_transcript(char *json_str, const Ytingest *yt, const struct Y
             timestamp_buff = malloc(timestamp_size + 1);
             if (!timestamp_buff) {
                 printf("Failed to allocate memory - %d\n", __LINE__);
-                return NULL;
+                goto done;
             }
             snprintf(timestamp_buff, timestamp_size + 1, timestamp_fmt, ismd ? " " : "", time, yt->video_id, seconds);
         } else {
@@ -432,7 +433,7 @@ static char *parse_transcript(char *json_str, const Ytingest *yt, const struct Y
             timestamp_buff = malloc(timestamp_size + 1);
             if (!timestamp_buff) {
                 printf("Failed to allocate memory - %d\n", __LINE__);
-                return NULL;
+                goto done;
             }
             snprintf(timestamp_buff, timestamp_size + 1, timestamp_fmt, ismd ? " " : "", time);
         }
@@ -466,9 +467,11 @@ static char *parse_transcript(char *json_str, const Ytingest *yt, const struct Y
         index++;
     }
 
-    char *result = join(new_arr);
+    result = join(new_arr);
     rtrim(result);
 
+done:
+    cJSON_Delete(new_arr);
     cJSON_Delete(root);
     return result;
 }
@@ -772,30 +775,31 @@ int ingest(const char *url, struct YtingestOpt *opt) {
         size_t output_path_len = strlen(opt->output_path);
         if ((output_path_len == 1 && strcmp(opt->output_path, "/") == 0) ||
             (output_path_len > 1 && opt->output_path[output_path_len - 1] == '/')) {
-            output_path_fmt = "%syt_%s.%s";
+            output_path_fmt = "%syt_%s_%s.%s";
         } else {
-            output_path_fmt = "%s/yt_%s.%s";
+            output_path_fmt = "%s/yt_%s_%s.%s";
         }
         size_t output_path_size =
-            snprintf(NULL, 0, output_path_fmt, opt->output_path, video_id->valuestring, opt->format);
+            snprintf(NULL, 0, output_path_fmt, opt->output_path, opt->lang, video_id->valuestring, opt->format);
         filename = malloc(output_path_size + 1);
         if (!filename) {
             printf("Failed to allocate memory - %d\n", __LINE__);
             cJSON_Delete(root);
             return 1;
         }
-        snprintf(filename, output_path_size + 1, output_path_fmt, opt->output_path, video_id->valuestring, opt->format);
+        snprintf(filename, output_path_size + 1, output_path_fmt, opt->output_path, opt->lang, video_id->valuestring,
+                 opt->format);
         file = fopen(filename, "w+");
     } else {
-        const char *output_path_fmt = "yt_%s.%s";
-        size_t output_path_size = snprintf(NULL, 0, output_path_fmt, video_id->valuestring, opt->format);
+        const char *output_path_fmt = "yt_%s_%s.%s";
+        size_t output_path_size = snprintf(NULL, 0, output_path_fmt, opt->lang, video_id->valuestring, opt->format);
         filename = malloc(output_path_size + 1);
         if (!filename) {
             printf("Failed to allocate memory - %d\n", __LINE__);
             cJSON_Delete(root);
             return 1;
         }
-        snprintf(filename, output_path_size + 1, "yt_%s.%s", video_id->valuestring, opt->format);
+        snprintf(filename, output_path_size + 1, output_path_fmt, opt->lang, video_id->valuestring, opt->format);
         file = fopen(filename, "w+");
     }
     if (!file) {
