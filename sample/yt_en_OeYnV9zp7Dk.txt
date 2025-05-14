@@ -65,7 +65,7 @@ Category: Music
 
 Publish Date: 2021-06-16T09:46:57-07:00
 
-View Count: 6147518
+View Count: 6147947
 
 Transcript:
 """
