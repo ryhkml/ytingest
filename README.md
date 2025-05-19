@@ -75,16 +75,3 @@ There are options listed:
 > export LANG="en_US.UTF-8"
 > export LC_ALL="en_US.UTF-8"
 > ```
-
-## Formatter
-
-`.clang-format` is based on Google style guide
-
-```
-BasedOnStyle: Google
-IndentWidth: 4
-ColumnLimit: 120
-AlignArrayOfStructures: Left
-AlignAfterOpenBracket: Align
-BracedInitializerIndentWidth: 4
-```
