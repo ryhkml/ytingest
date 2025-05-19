@@ -8,6 +8,10 @@
 #define ANSI_ERROR "\033[1;31m"
 #define ANSI_RESET "\033[0m"
 
+#define NOOP \
+    do {     \
+    } while (0)
+
 struct YtingestOpt {
     bool lang_available;
     char *exclude, *lang, *format, *output_path, *token_count;

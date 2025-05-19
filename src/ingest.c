@@ -3,6 +3,7 @@
 #include <ctype.h>
 #include <curl/curl.h>
 #include <regex.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -152,7 +153,7 @@ static char *fetch(const char *url, const RawFormat raw_format, const char *body
             headers,
             "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8");
         headers = curl_slist_append(headers, "Accept-Language: en;q=0.8");
-        headers = curl_slist_append(headers, "Cache-Control: max-age=0");
+        headers = curl_slist_append(headers, "Cache-Control: no-cache, no-store, must-revalidate");
         headers = curl_slist_append(headers, "Sec-Fetch-Dest: document");
         headers = curl_slist_append(headers, "Sec-Fetch-Mode: navigate");
         headers = curl_slist_append(headers, "Sec-Fetch-Site: same-origin");
@@ -685,28 +686,47 @@ static void write_yt(FILE *file, const Ytingest *yt, const char *format) {
     }
 }
 
-static void show_lang_available(cJSON *root) {
+static cJSON *get_captions(cJSON *root, int field) {
     cJSON *captions = cJSON_GetObjectItem(root, "captions");
-    if (cJSON_IsObject(captions)) {
-        cJSON *tracklist = cJSON_GetObjectItem(captions, "playerCaptionsTracklistRenderer");
-        if (cJSON_IsObject(tracklist)) {
-            cJSON *caption_tracks = cJSON_GetObjectItem(tracklist, "captionTracks");
-            if (cJSON_IsArray(caption_tracks)) {
-                cJSON *track = cJSON_GetArrayItem(caption_tracks, 0);
-                if (cJSON_IsObject(track)) {
-                    cJSON *translation_langs = cJSON_GetObjectItem(tracklist, "translationLanguages");
-                    if (cJSON_IsArray(translation_langs) && cJSON_GetArraySize(translation_langs) > 0) {
-                        printf("%sOK:%s Available transcript translation languages:\n", ANSI_INFO, ANSI_RESET);
-                        cJSON *translation_lang;
-                        cJSON_ArrayForEach(translation_lang, translation_langs) {
-                            cJSON *lang_code = cJSON_GetObjectItem(translation_lang, "languageCode");
-                            cJSON *lang_name = cJSON_GetObjectItem(translation_lang, "languageName");
-                            cJSON *text = cJSON_GetObjectItem(lang_name, "simpleText");
-                            printf("- %s -> %s\n", text->valuestring, lang_code->valuestring);
-                        }
-                    }
-                }
-            }
+    if (!cJSON_IsObject(captions)) {
+        printf("%sWARNING:%s Captions not available\n", ANSI_WARN, ANSI_RESET);
+        return NULL;
+    }
+    cJSON *tracklist = cJSON_GetObjectItem(captions, "playerCaptionsTracklistRenderer");
+    if (!cJSON_IsObject(tracklist)) {
+        printf("%sWARNING:%s Tracklist not available\n", ANSI_WARN, ANSI_RESET);
+        return NULL;
+    }
+    cJSON *caption_tracks = cJSON_GetObjectItem(tracklist, "captionTracks");
+    if (!cJSON_IsArray(caption_tracks)) {
+        printf("%sWARNING:%s Caption tracks not available\n", ANSI_WARN, ANSI_RESET);
+        return NULL;
+    }
+    cJSON *track = cJSON_GetArrayItem(caption_tracks, 0);
+    if (!cJSON_IsObject(track)) {
+        printf("%sWARNING:%s Track not available\n", ANSI_WARN, ANSI_RESET);
+        return NULL;
+    }
+    cJSON *translation_langs = cJSON_GetObjectItem(tracklist, "translationLanguages");
+    if (cJSON_IsArray(translation_langs) && cJSON_GetArraySize(translation_langs) > 0) {
+        if (field == 't') {
+            return track;
+        }
+        return translation_langs;
+    }
+    return NULL;
+}
+
+static void show_lang_available(cJSON *root) {
+    cJSON *translation_langs = get_captions(root, 0);
+    if (translation_langs) {
+        printf("%sOK:%s Available transcript translation languages:\n", ANSI_INFO, ANSI_RESET);
+        cJSON *translation_lang;
+        cJSON_ArrayForEach(translation_lang, translation_langs) {
+            cJSON *lang_code = cJSON_GetObjectItem(translation_lang, "languageCode");
+            cJSON *lang_name = cJSON_GetObjectItem(translation_lang, "languageName");
+            cJSON *text = cJSON_GetObjectItem(lang_name, "simpleText");
+            printf("- %s -> %s\n", text->valuestring, lang_code->valuestring);
         }
     } else {
         printf("%sWARNING:%s Transcript not available\n", ANSI_WARN, ANSI_RESET);
@@ -843,9 +863,7 @@ int ingest(const char *url, struct YtingestOpt *opt) {
     cJSON *islive = cJSON_GetObjectItem(video_details, "isLiveContent");
     if (cJSON_IsTrue(islive)) {
         printf("The video is live!\n");
-        if (isinclude(opt->exclude, "video_live")) {
-            yt.video_live = true;
-        }
+        if (isinclude(opt->exclude, "video_live")) yt.video_live = true;
     }
 
     if (isinclude(opt->exclude, "keywords")) {
@@ -896,18 +914,13 @@ int ingest(const char *url, struct YtingestOpt *opt) {
 
     if (isinclude(opt->exclude, "video_thumbnail")) {
         cJSON *thumbnail = cJSON_GetObjectItem(player_microformat_renderer, "thumbnail");
-        if (cJSON_IsObject(thumbnail)) {
-            cJSON *thumbnails = cJSON_GetObjectItem(thumbnail, "thumbnails");
-            if (cJSON_IsArray(thumbnails) && cJSON_GetArraySize(thumbnails) > 0) {
-                cJSON *thumbnail_index = cJSON_GetArrayItem(thumbnails, 0);
-                if (cJSON_IsObject(thumbnail_index)) {
-                    cJSON *thumbnail_url = cJSON_GetObjectItem(thumbnail_index, "url");
-                    if (cJSON_IsString(thumbnail_url)) {
-                        yt.video_thumbnail = thumbnail_url->valuestring;
-                    }
-                }
-            }
-        }
+        if (!cJSON_IsObject(thumbnail)) NOOP;
+        cJSON *thumbnails = cJSON_GetObjectItem(thumbnail, "thumbnails");
+        if (!cJSON_IsArray(thumbnails)) NOOP;
+        cJSON *thumbnail_index = cJSON_GetArrayItem(thumbnails, 0);
+        if (!cJSON_IsObject(thumbnail_index)) NOOP;
+        cJSON *thumbnail_url = cJSON_GetObjectItem(thumbnail_index, "url");
+        if (cJSON_IsString(thumbnail_url)) yt.video_thumbnail = thumbnail_url->valuestring;
     }
 
     if (isinclude(opt->exclude, "owner_profile_url")) {
@@ -937,45 +950,36 @@ int ingest(const char *url, struct YtingestOpt *opt) {
     }
 
     if (isinclude(opt->exclude, "transcript")) {
-        cJSON *captions = cJSON_GetObjectItem(root, "captions");
-        if (cJSON_IsObject(captions)) {
-            cJSON *tracklist = cJSON_GetObjectItem(captions, "playerCaptionsTracklistRenderer");
-            if (cJSON_IsObject(tracklist)) {
-                cJSON *caption_tracks = cJSON_GetObjectItem(tracklist, "captionTracks");
-                if (cJSON_IsArray(caption_tracks)) {
-                    cJSON *track = cJSON_GetArrayItem(caption_tracks, 0);
-                    if (cJSON_IsObject(track)) {
-                        cJSON *base_url = cJSON_GetObjectItem(track, "baseUrl");
-                        const char *endpoint_fmt = "%s&fmt=json3&tlang=%s";
-                        size_t endpoint_size = snprintf(NULL, 0, endpoint_fmt, base_url->valuestring, opt->lang);
-                        char *endpoint_buff = malloc(endpoint_size + 1);
-                        if (!endpoint_buff) {
-                            exit_status = 1;
-                            printf("Failed to allocate memory\n");
-                            goto done;
-                        }
-                        snprintf(endpoint_buff, endpoint_size + 1, endpoint_fmt, base_url->valuestring, opt->lang);
-                        char *raw_transcript = fetch(endpoint_buff, RF_JSON, NULL);
-                        if (raw_transcript) {
-                            char *transcript = parse_transcript(raw_transcript, &yt, opt);
-                            if (transcript) {
-                                if (strcmp(transcript, "INVALID_LANG") != 0) {
-                                    if (strcmp(opt->format, "json") == 0) {
-                                        char *tmp_buff = normalize(transcript);
-                                        yt.transcript = mstrdup(tmp_buff);
-                                        free(tmp_buff);
-                                    } else {
-                                        yt.transcript = mstrdup(transcript);
-                                    }
-                                }
-                                free(transcript);
-                            }
-                            free(raw_transcript);
-                        }
-                        free(endpoint_buff);
-                    }
-                }
+        cJSON *track = get_captions(root, 't');
+        if (track) {
+            cJSON *base_url = cJSON_GetObjectItem(track, "baseUrl");
+            const char *endpoint_fmt = "%s&fmt=json3&tlang=%s";
+            size_t endpoint_size = snprintf(NULL, 0, endpoint_fmt, base_url->valuestring, opt->lang);
+            char *endpoint_buff = malloc(endpoint_size + 1);
+            if (!endpoint_buff) {
+                exit_status = 1;
+                printf("Failed to allocate memory\n");
+                goto done;
             }
+            snprintf(endpoint_buff, endpoint_size + 1, endpoint_fmt, base_url->valuestring, opt->lang);
+            char *raw_transcript = fetch(endpoint_buff, RF_JSON, NULL);
+            if (raw_transcript) {
+                char *transcript = parse_transcript(raw_transcript, &yt, opt);
+                if (transcript) {
+                    if (strcmp(transcript, "INVALID_LANG") != 0) {
+                        if (strcmp(opt->format, "json") == 0) {
+                            char *tmp_buff = normalize(transcript);
+                            yt.transcript = mstrdup(tmp_buff);
+                            free(tmp_buff);
+                        } else {
+                            yt.transcript = mstrdup(transcript);
+                        }
+                    }
+                    free(transcript);
+                }
+                free(raw_transcript);
+            }
+            free(endpoint_buff);
         } else {
             printf("%sWARNING:%s Transcript not available\n", ANSI_WARN, ANSI_RESET);
         }
