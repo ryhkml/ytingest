@@ -10,8 +10,8 @@ Ytingest enables LLMs to gain knowledge from YouTube video content. Ytingest all
 
 Requirements:
 
-1. [libcurl](https://curl.se/libcurl) for http request
-1. [cargo](https://www.rust-lang.org/tools/install) for tiktoken-rs compilation
+1. [libcurl](https://curl.se/libcurl) for _de facto_ http requests
+1. [cargo](https://www.rust-lang.org/tools/install) for tiktoken-rs compilation (optional)
 
 Run the following command to clone and update submodules:
 
@@ -28,13 +28,19 @@ gcc -o nob nob.c
 ./nob
 ```
 
+**or** build with token count option:
+
+```sh
+./nob -ltokencount
+```
+
 The compiled executable will be located in the `out` directory. You can run it using the following command:
 
 ```sh
 out/ytingest "https://www.youtube.com/watch?v=OeYnV9zp7Dk"
 ```
 
-Or use the token count option based on the Gemini model:
+**or** use the token count option based on the Gemini model:
 
 ```sh
 # Set the GEMINI_API_KEY env
@@ -57,7 +63,7 @@ There are options listed:
 
 > [!NOTE]
 >
-> 1. If ytingest cannot access the shared object file, set the `LD_LIBRARY_PATH` env temporarily or permanently by running the following command in the project directory:
+> 1. If ytingest with `-ltokencount` cannot access the shared object file, set the `LD_LIBRARY_PATH` env temporarily or permanently by running the following command in the project directory:
 >
 > ```sh
 > export LD_LIBRARY_PATH="$(pwd)/src/tiktoken-c/target/release:$LD_LIBRARY_PATH"

@@ -11,7 +11,9 @@
 #include <string.h>
 
 #include "cJSON/cJSON.h"
+#ifdef USE_LIBTOKENCOUNT
 #include "tiktoken-c/tiktoken.h"
+#endif
 
 typedef enum {
     RF_PLAINTEXT,
@@ -498,6 +500,7 @@ done:
  * @see For more context on the different Google Gemini models, see
  * https://ai.google.dev/gemini-api/docs/tokens
  */
+#ifdef USE_LIBTOKENCOUNT
 static void token_count(FILE *file, const char *model) {
     if (!model) return;
 
@@ -598,6 +601,7 @@ static void token_count(FILE *file, const char *model) {
 done:
     free(file_buff);
 }
+#endif
 
 static void write_yt(FILE *file, const Ytingest *yt, const char *format) {
     if (strcmp(format, "json") == 0) {
@@ -991,7 +995,13 @@ done:
         remove(filename);
     } else {
         write_yt(file, &yt, opt->format);
+#ifdef USE_LIBTOKENCOUNT
         if (opt->token_count) token_count(file, opt->token_count);
+#else
+        if (opt->token_count)
+            printf("%sWARNING%s: \"--token-count\" option not available. Build using -ltokencount first\n", ANSI_WARN,
+                   ANSI_RESET);
+#endif
         printf("%sOK:%s Output file has been created in %s\n", ANSI_INFO, ANSI_RESET, filename);
         fclose(file);
     }
