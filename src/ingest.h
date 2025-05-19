@@ -12,6 +12,14 @@
     do {     \
     } while (0)
 
+#define YTINGEST_MAJOR_SEMVER 0
+#define YTINGEST_MINOR_SEMVER 2
+#define YTINGEST_PATCH_SEMVER 0
+#define STRINGIFY(v) #v
+#define TOSTRING(v) STRINGIFY(v)
+#define YTINGEST_VERSION \
+    TOSTRING(YTINGEST_MAJOR_SEMVER) "." TOSTRING(YTINGEST_MINOR_SEMVER) "." TOSTRING(YTINGEST_PATCH_SEMVER)
+
 struct YtingestOpt {
     bool lang_available;
     char *exclude, *lang, *format, *output_path, *token_count;
