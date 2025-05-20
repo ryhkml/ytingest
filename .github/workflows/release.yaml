@@ -22,7 +22,7 @@ jobs:
       - name: Build
         run: |
           gcc -o nob nob.c
-          ./nob
+          ./nob -ltokencount
       - name: Execute
         run: |
           ./out/ytingest -h
