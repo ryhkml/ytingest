@@ -44,7 +44,9 @@ int main(int argc, char *argv[]) {
         {"lang-available", no_argument,       NULL, 0  },
         {"format",         required_argument, NULL, 0  },
         {"output-path",    required_argument, NULL, 'O'},
+#ifdef USE_LIBTOKENCOUNT
         {"token-count",    required_argument, NULL, 'T'},
+#endif
         {"help",           no_argument,       NULL, 'h'},
         {"version",        no_argument,       NULL, 'v'},
         {0,                0,                 0,    0  }
@@ -56,9 +58,16 @@ int main(int argc, char *argv[]) {
         .format = "txt",
     };
 
+    const char *short_opt =
+#ifdef USE_LIBTOKENCOUNT
+        "e:O:T:hv";
+#else
+        "e:O:hv";
+#endif
+
     int opt;
     int opt_index = 0;
-    while ((opt = getopt_long(argc, argv, "e:O:T:hv", init_opt, &opt_index)) != -1) {
+    while ((opt = getopt_long(argc, argv, short_opt, init_opt, &opt_index)) != -1) {
         switch (opt) {
             case 'e':
                 ytingest.exclude = optarg;
@@ -66,9 +75,11 @@ int main(int argc, char *argv[]) {
             case 'O':
                 ytingest.output_path = optarg;
                 break;
+#ifdef USE_LIBTOKENCOUNT
             case 'T':
                 ytingest.token_count = optarg;
                 break;
+#endif
             case 'h':
                 print_help();
                 return EXIT_SUCCESS;

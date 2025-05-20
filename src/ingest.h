@@ -22,7 +22,10 @@
 
 struct YtingestOpt {
     bool lang_available;
-    char *exclude, *lang, *format, *output_path, *token_count;
+    char *exclude, *lang, *format, *output_path;
+#ifdef USE_LIBTOKENCOUNT
+    char *token_count;
+#endif
 };
 
 int ingest(const char *json_str, struct YtingestOpt *opt);
