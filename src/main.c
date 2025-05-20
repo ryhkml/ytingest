@@ -6,7 +6,7 @@
 #include "ingest.h"
 
 static void print_help() {
-    printf("---\n");
+    printf("\n");
     printf("Extract YouTube video, feed it to any LLM as knowledge\n");
     printf("Usage   : ytingest <options?> <url>\n");
     printf("Options :\n");
@@ -19,9 +19,11 @@ static void print_help() {
     printf("  --lang <str>                  Specify language code for transcript translation (Default: en)\n");
     printf("  --lang-available              Display available transcript translation languages\n");
     printf("  -O, --output-path <str>       Specify the directory to save the output file (Default: $pwd)\n");
+#ifdef USE_LIBTOKENCOUNT
     printf(
         "  -T, --token-count <str>       Specify Google Gemini or OpenAI model name to estimate the token count of the "
         "output\n");
+#endif
     printf("\n");
     printf("  -h, --help                    Display help message and exit\n");
     printf("  -v, --version                 Display version and exit\n");
@@ -32,7 +34,7 @@ static void print_help() {
     printf("    out/ytingest \"https://youtu.be/OeYnV9zp7Dk?si=_rCGAoV59TIR5L1r\"\n");
     printf(" 3. Or using YouTube Shorts\n");
     printf("    out/ytingest \"https://www.youtube.com/shorts/olm7ie2YUhY\"\n");
-    printf("---\n");
+    printf("\n");
 }
 
 int main(int argc, char *argv[]) {
