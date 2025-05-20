@@ -13,7 +13,7 @@
     } while (0)
 
 #define YTINGEST_MAJOR_SEMVER 0
-#define YTINGEST_MINOR_SEMVER 2
+#define YTINGEST_MINOR_SEMVER 3
 #define YTINGEST_PATCH_SEMVER 0
 #define STRINGIFY(v) #v
 #define TOSTRING(v) STRINGIFY(v)
