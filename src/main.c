@@ -10,6 +10,8 @@ static void print_help() {
     printf("Extract YouTube video, feed it to any LLM as knowledge\n");
     printf("Usage   : ytingest <options?> <url>\n");
     printf("Options :\n");
+    printf("  --doh <str>                   Specify DNS over HTTPS\n");
+    printf("                                Available: cloudflare, google, quad9, or use URL\n");
     printf("  -e, --exclude <str,str,...>   Specify YouTube metadata fields to exclude (comma-separated)\n");
     printf("                                Available: author, description, keywords, owner_profile_url,\n");
     printf("                                           video_url, video_thumbnail, video_length, category,\n");
@@ -39,6 +41,7 @@ static void print_help() {
 
 int main(int argc, char *argv[]) {
     struct option init_opt[] = {
+        {"doh",            required_argument, NULL, 0  },
         {"exclude",        required_argument, NULL, 'e'},
         {"lang",           required_argument, NULL, 0  },
         {"lang-available", no_argument,       NULL, 0  },
@@ -88,9 +91,10 @@ int main(int argc, char *argv[]) {
                 printf("%s\n", YTINGEST_VERSION);
                 return EXIT_SUCCESS;
             case 0:
-                if (opt_index == 1) ytingest.lang = optarg;
-                if (opt_index == 2) ytingest.lang_available = true;
-                if (opt_index == 3) ytingest.format = optarg;
+                if (opt_index == 0) ytingest.doh = optarg;
+                if (opt_index == 2) ytingest.lang = optarg;
+                if (opt_index == 3) ytingest.lang_available = true;
+                if (opt_index == 4) ytingest.format = optarg;
                 break;
             case '?':
                 printf("Invalid option. Use -h or --help to display help meesage\n");

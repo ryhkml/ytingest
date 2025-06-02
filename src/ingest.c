@@ -134,7 +134,7 @@ static size_t write_cb(void *contents, size_t size, size_t nmemb, void *clientp)
     return realsize;
 }
 
-static char *fetch(const char *url, const RawFormat raw_format, const char *body) {
+static char *fetch(const char *url, const RawFormat raw_format, const char *body, const char *doh) {
     CURL *curl = curl_easy_init();
     if (!curl) {
         fprintf(stderr, "Failed to initialize curl\n");
@@ -172,6 +172,26 @@ static char *fetch(const char *url, const RawFormat raw_format, const char *body
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_cb);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&chunk);
     if (body) curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body);
+
+    // NOTE!
+    // Use DNS over HTTPS if transcripts cannot be obtained. This may be due to inconsistent responses.
+    // However, there is a trade-off as DoH requests may take slightly longer compared to requests without DoH.
+    if (doh) {
+        if (strcmp(doh, "cloudflare") == 0) {
+            curl_easy_setopt(curl, CURLOPT_DOH_URL, "https://cloudflare-dns.com/dns-query");
+        }
+        if (strcmp(doh, "google") == 0) {
+            curl_easy_setopt(curl, CURLOPT_DOH_URL, "https://dns.google/dns-query");
+        }
+        if (strcmp(doh, "quad9") == 0) {
+            curl_easy_setopt(curl, CURLOPT_DOH_URL, "https://dns.quad9.net/dns-query");
+        }
+        if (mstrcasestr(doh, "https://")) {
+            // Or custom DoH URL
+            curl_easy_setopt(curl, CURLOPT_DOH_URL, doh);
+        }
+    }
+
     curl_easy_setopt(curl, CURLOPT_URL, url);
 
     res = curl_easy_perform(curl);
@@ -545,7 +565,7 @@ static void token_count(FILE *file, const char *model) {
         }
         snprintf(endpoint_buff, endpoint_size + 1, endpoint_fmt, model, GEMINI_API_KEY);
 
-        char *res = fetch(endpoint_buff, RF_JSON, payload_buff);
+        char *res = fetch(endpoint_buff, RF_JSON, payload_buff, NULL);
         if (!res) {
             free(endpoint_buff);
             free(payload_buff);
@@ -738,7 +758,8 @@ static void show_lang_available(cJSON *root) {
 }
 
 int ingest(const char *url, struct YtingestOpt *opt) {
-    char *raw_content = fetch(url, RF_PLAINTEXT, NULL);
+    tolowercase(opt->doh);
+    char *raw_content = fetch(url, RF_PLAINTEXT, NULL, opt->doh);
     if (!raw_content) return 1;
 
     char *json_str = extract(raw_content);
@@ -958,7 +979,7 @@ int ingest(const char *url, struct YtingestOpt *opt) {
                 goto done;
             }
             snprintf(endpoint_buff, endpoint_size + 1, endpoint_fmt, base_url->valuestring, opt->lang);
-            char *raw_transcript = fetch(endpoint_buff, RF_JSON, NULL);
+            char *raw_transcript = fetch(endpoint_buff, RF_JSON, NULL, NULL);
             if (raw_transcript) {
                 char *transcript = parse_transcript(raw_transcript, &yt, opt);
                 if (transcript) {

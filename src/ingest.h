@@ -22,7 +22,7 @@
 
 struct YtingestOpt {
     bool lang_available;
-    char *exclude, *lang, *format, *output_path;
+    char *doh, *exclude, *lang, *format, *output_path;
 #ifdef USE_LIBTOKENCOUNT
     char *token_count;
 #endif
