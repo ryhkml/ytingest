@@ -20,6 +20,8 @@
 #define YTINGEST_VERSION \
     TOSTRING(YTINGEST_MAJOR_SEMVER) "." TOSTRING(YTINGEST_MINOR_SEMVER) "." TOSTRING(YTINGEST_PATCH_SEMVER)
 
+#define ISO8601_BUFFER_SIZE 26
+
 struct YtingestOpt {
     bool lang_available;
     char *doh, *exclude, *lang, *format, *output_path;

@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "cJSON/cJSON.h"
 #ifdef USE_LIBTOKENCOUNT
@@ -33,7 +34,7 @@ typedef struct {
 typedef struct {
     bool video_live;
     char *title, *author, *description, *video_id, *video_url, *video_thumbnail, *video_length, *owner_profile_url,
-        *category, *publish_date, *transcript;
+        *category, *ingest_date, *publish_date, *transcript;
     Keyword keyword;
     unsigned long long view_count;
 } Ytingest;
@@ -319,6 +320,32 @@ static char *tohttps(const char *url) {
 static void tolowercase(char *text) {
     if (!text) return;
     for (; *text; text++) *text = tolower((unsigned char)*text);
+}
+
+static char *ingest_date(char *buff, size_t size) {
+    time_t now = time(NULL);
+    if (!now) return NULL;
+    struct tm *timeinfo = localtime(&now);
+    size_t len_written = strftime(buff, size, "%Y-%m-%dT%H:%M:%S", timeinfo);
+    if (len_written == 0) return NULL;
+    // For +HHMM\0 or -HHMM\0
+    char tz_offset_str[6];
+    strftime(tz_offset_str, sizeof(tz_offset_str), "%z", timeinfo);
+    // The characters to be added 1 (sign) + 2 (HH) + 1 (:) + 2 (MM) = 6
+    // The sign (+ or -)
+    buff[len_written++] = tz_offset_str[0];
+    // One-digit hour
+    buff[len_written++] = tz_offset_str[1];
+    // Two-digit hour
+    buff[len_written++] = tz_offset_str[2];
+    buff[len_written++] = ':';
+    // One-digit minute
+    buff[len_written++] = tz_offset_str[3];
+    // Two-digit minute
+    buff[len_written++] = tz_offset_str[4];
+    buff[len_written] = '\0';
+
+    return buff;
 }
 
 static char *time_yt(uint16_t video_len, char *buff, size_t size) {
@@ -643,6 +670,7 @@ static void write_yt(FILE *file, const Ytingest *yt, const char *format) {
         if (yt->video_length) cJSON_AddStringToObject(root, "video_length", yt->video_length);
         if (yt->category) cJSON_AddStringToObject(root, "category", yt->category);
         if (yt->publish_date) cJSON_AddStringToObject(root, "publish_date", yt->publish_date);
+        cJSON_AddStringToObject(root, "ingest_date", yt->ingest_date);
         if (yt->view_count) cJSON_AddNumberToObject(root, "view_count", yt->view_count);
         if (yt->transcript) cJSON_AddStringToObject(root, "transcript", yt->transcript);
         char *result = cJSON_Print(root);
@@ -656,6 +684,7 @@ static void write_yt(FILE *file, const Ytingest *yt, const char *format) {
         if (yt->owner_profile_url) fprintf(file, "\n\n**Owner Profile URL:** %s", yt->owner_profile_url);
         if (yt->category) fprintf(file, "\n\n**Category:** %s", yt->category);
         if (yt->publish_date) fprintf(file, "\n\n**Publish Date:** %s", yt->publish_date);
+        fprintf(file, "\n\n**Ingest Date:** %s", yt->ingest_date);
         if (yt->video_length) fprintf(file, "\n\n**Video Length:** %s", yt->video_length);
         if (yt->view_count) fprintf(file, "\n\n**View Count:** %llu", yt->view_count);
         if (yt->description) {
@@ -700,6 +729,7 @@ static void write_yt(FILE *file, const Ytingest *yt, const char *format) {
         if (yt->video_length) fprintf(file, "\n\nVideo Length: %s", yt->video_length);
         if (yt->category) fprintf(file, "\n\nCategory: %s", yt->category);
         if (yt->publish_date) fprintf(file, "\n\nPublish Date: %s", yt->publish_date);
+        fprintf(file, "\n\nIngest Date: %s", yt->ingest_date);
         if (yt->view_count) fprintf(file, "\n\nView Count: %llu", yt->view_count);
         if (yt->transcript) {
             fprintf(file, "\n\nTranscript:");
@@ -758,7 +788,11 @@ static void show_lang_available(cJSON *root) {
 }
 
 int ingest(const char *url, struct YtingestOpt *opt) {
+    char ingest_tmp[ISO8601_BUFFER_SIZE];
+    ingest_date(ingest_tmp, sizeof(ingest_tmp));
+
     tolowercase(opt->doh);
+
     char *raw_content = fetch(url, RF_PLAINTEXT, NULL, opt->doh);
     if (!raw_content) return 1;
 
@@ -796,6 +830,8 @@ int ingest(const char *url, struct YtingestOpt *opt) {
     }
 
     Ytingest yt = {0};
+
+    yt.ingest_date = ingest_tmp;
 
     if (strcmp(opt->format, "txt") != 0) {
         tolowercase(opt->format);
