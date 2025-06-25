@@ -21,6 +21,7 @@ static void print_help() {
     printf("  --lang <str>                  Specify language code for transcript translation (Default: en)\n");
     printf("  --lang-available              Display available transcript translation languages\n");
     printf("  -O, --output-path <str>       Specify the directory to save the output file (Default: $pwd)\n");
+    printf("  --transcript-url <str>		Specify transcript url\n");
 #ifdef USE_LIBTOKENCOUNT
     printf(
         "  -T, --token-count <str>       Specify Google Gemini or OpenAI model name to estimate the token count of the "
@@ -47,6 +48,7 @@ int main(int argc, char *argv[]) {
         {"lang-available", no_argument,       NULL, 0  },
         {"format",         required_argument, NULL, 0  },
         {"output-path",    required_argument, NULL, 'O'},
+        {"transcript-url", required_argument, NULL, 0  },
 #ifdef USE_LIBTOKENCOUNT
         {"token-count",    required_argument, NULL, 'T'},
 #endif
@@ -95,6 +97,7 @@ int main(int argc, char *argv[]) {
                 if (opt_index == 2) ytingest.lang = optarg;
                 if (opt_index == 3) ytingest.lang_available = true;
                 if (opt_index == 4) ytingest.format = optarg;
+                if (opt_index == 6) ytingest.transcript_url = optarg;
                 break;
             case '?':
                 printf("Invalid option. Use -h or --help to display help meesage\n");

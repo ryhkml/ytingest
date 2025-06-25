@@ -115,6 +115,49 @@ static bool isempty(const char *value) {
     return true;
 }
 
+static char *set_tlang(const char *url, const char *new_value) {
+    if (!url || !new_value) return NULL;
+
+    size_t key_len = 5;
+
+    char search_q[key_len + 3];
+    char search_a[key_len + 3];
+
+    snprintf(search_q, sizeof(search_q), "?%s=", "tlang");
+    snprintf(search_a, sizeof(search_a), "&%s=", "tlang");
+
+    char *params_start = mstrcasestr(url, search_q);
+    if (!params_start) params_start = mstrcasestr(url, search_a);
+
+    if (params_start) {
+        char *value_start = params_start + key_len + 2;
+        char *value_end = strchr(value_start, '&');
+
+        size_t prefix_len = value_start - url;
+        const char *suffix_start = value_end ? value_end : "";
+        size_t new_value_len = strlen(new_value);
+        size_t suffix_len = strlen(suffix_start);
+
+        size_t new_url_len = prefix_len + new_value_len + suffix_len;
+        char *new_url = malloc(new_url_len + 1);
+        if (!new_url) return NULL;
+        snprintf(new_url, new_url_len + 1, "%.*s%s%s", (int)prefix_len, url, new_value, suffix_start);
+
+        return new_url;
+    }
+
+    const char *separator = strchr(url, '?') ? "&" : "?";
+    size_t url_len = strlen(url);
+    size_t new_value_len = strlen(new_value);
+
+    size_t new_url_len = url_len + 1 + key_len + 1 + new_value_len;
+    char *new_url = malloc(new_url_len + 1);
+    if (!new_url) return NULL;
+    snprintf(new_url, new_url_len + 1, "%s%s%s=%s", url, separator, "tlang", new_value);
+
+    return new_url;
+}
+
 /**
  * Callback function to write response data into memory.
  *
@@ -147,21 +190,26 @@ static char *fetch(const char *url, const RawFormat raw_format, const char *body
 
     struct curl_slist *headers = NULL;
 
+    headers = curl_slist_append(headers, "Cache-Control: no-cache, no-store");
     if (raw_format == RF_JSON) {
         headers = curl_slist_append(headers, "Accept: application/json");
-        headers = curl_slist_append(headers, "Cache-Control: no-cache, no-store, must-revalidate");
         headers = curl_slist_append(headers, "Content-Type: application/json");
+        if (mstrcasestr(url, "https://www.youtube.com/")) {
+            const char *ref_fmt = "Referer: %s";
+            size_t ref_size = snprintf(NULL, 0, ref_fmt, url);
+            char *ref_buff = malloc(ref_size + 1);
+            if (ref_buff) {
+                snprintf(ref_buff, ref_size + 1, ref_fmt, url);
+                headers = curl_slist_append(headers, ref_fmt);
+                free(ref_buff);
+            }
+        }
     } else {
         headers = curl_slist_append(
             headers,
             "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8");
         headers = curl_slist_append(headers, "Accept-Language: en;q=0.8");
-        headers = curl_slist_append(headers, "Cache-Control: no-cache, no-store, must-revalidate");
-        headers = curl_slist_append(headers, "Sec-Fetch-Dest: document");
-        headers = curl_slist_append(headers, "Sec-Fetch-Mode: navigate");
-        headers = curl_slist_append(headers, "Sec-Fetch-Site: same-origin");
-        headers = curl_slist_append(headers, "Priority: u=0, i");
-        headers = curl_slist_append(headers, "Upgrade-Insecure-Requests: 1");
+        headers = curl_slist_append(headers, "Referer: https://www.youtube.com");
     }
 
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
@@ -169,14 +217,11 @@ static char *fetch(const char *url, const RawFormat raw_format, const char *body
     if (raw_format == RF_PLAINTEXT)
         curl_easy_setopt(
             curl, CURLOPT_USERAGENT,
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36");
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36");
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_cb);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&chunk);
     if (body) curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body);
 
-    // NOTE!
-    // Use DNS over HTTPS if transcripts cannot be obtained. This may be due to inconsistent responses.
-    // However, there is a trade-off as DoH requests may take slightly longer compared to requests without DoH.
     if (doh) {
         if (strcmp(doh, "cloudflare") == 0) {
             curl_easy_setopt(curl, CURLOPT_DOH_URL, "https://cloudflare-dns.com/dns-query");
@@ -1002,20 +1047,15 @@ int ingest(const char *url, struct YtingestOpt *opt) {
         }
     }
 
-    if (isinclude(opt->exclude, "transcript")) {
+    // NOTE!
+    // Transcript currently require valid proof of access
+    // Set the specific transcript URL from the browser
+    // Read more in the README
+    if (isinclude(opt->exclude, "transcript") && opt->transcript_url) {
         cJSON *track = get_captions(root, 't');
         if (track) {
-            cJSON *base_url = cJSON_GetObjectItem(track, "baseUrl");
-            const char *endpoint_fmt = "%s&fmt=json3&tlang=%s";
-            size_t endpoint_size = snprintf(NULL, 0, endpoint_fmt, base_url->valuestring, opt->lang);
-            char *endpoint_buff = malloc(endpoint_size + 1);
-            if (!endpoint_buff) {
-                exit_status = 1;
-                printf("Failed to allocate memory\n");
-                goto done;
-            }
-            snprintf(endpoint_buff, endpoint_size + 1, endpoint_fmt, base_url->valuestring, opt->lang);
-            char *raw_transcript = fetch(endpoint_buff, RF_JSON, NULL, NULL);
+            char *url = set_tlang(opt->transcript_url, opt->lang);
+            char *raw_transcript = fetch(url, RF_JSON, NULL, NULL);
             if (raw_transcript) {
                 char *transcript = parse_transcript(raw_transcript, &yt, opt);
                 if (transcript) {
@@ -1031,8 +1071,10 @@ int ingest(const char *url, struct YtingestOpt *opt) {
                     free(transcript);
                 }
                 free(raw_transcript);
+            } else {
+                printf("%sWARNING:%s Transcript is empty\n", ANSI_WARN, ANSI_RESET);
             }
-            free(endpoint_buff);
+            free(url);
         } else {
             printf("%sWARNING:%s Transcript not available\n", ANSI_WARN, ANSI_RESET);
         }
