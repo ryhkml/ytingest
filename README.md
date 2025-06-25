@@ -40,12 +40,11 @@ The compiled executable will be located in the `out` directory. You can run it u
 out/ytingest "https://www.youtube.com/watch?v=OeYnV9zp7Dk"
 ```
 
-**or** use the token count option based on the Gemini model:
+**or** use the token count option based on the Gemini model. Set the `GEMINI_API_KEY` env:
 
 ```sh
-# Set the GEMINI_API_KEY env
 export GEMINI_API_KEY="..."
-out/ytingest -T gemini-2.5-pro-preview-03-25 "https://www.youtube.com/watch?v=OeYnV9zp7Dk"
+out/ytingest -T gemini-2.5-flash --transcript-url "https://www.youtube.com/api/timedtext?v=..." "https://www.youtube.com/watch?v=OeYnV9zp7Dk"
 ```
 
 There are options listed:
@@ -77,14 +76,18 @@ There are options listed:
 > export LC_ALL="en_US.UTF-8"
 > ```
 
-## How to Retrieve a YouTube Video Transcript URL
+## How to Retrieve a Transcript URL
 
-To access the transcript URL for a YouTube video, follow these steps to make a valid request:
+To access the transcript URL for a YouTube video, follow these steps to make a valid request.
+
+> [!IMPORTANT]
+>
+> Currently the transcript endpoint has some new query parameters, but as far as I know, there are indications of query parameter authorization processes. Honestly i don't know much about this. Therefore, a different approach is needed. Fetching the transcript from the browser you are using. Although i think this is a suboptimal way, this is what i can do to still get the transcript.
 
 1. Open the YouTube video, right-click, and select **Inspect** (or press **F12**)
 1. Navigate to the **Network** tab in the developer tools
 1. Enable captions by clicking **CC** on the YouTube video player
 1. Return to the **Network** tab and filter requests by typing "timed" in the search bar
-1. Locate the request with a status code of **200**, right-click it, and select **Copy URL**.
+1. Locate the request with a status code of **200**, right-click it, and then **Copy URL**.
 
 Once you have the transcript URL, provide it as the value for the `--transcript-url` option.
