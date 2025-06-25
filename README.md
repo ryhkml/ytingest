@@ -58,6 +58,7 @@ There are options listed:
 | `--lang-available`    |               | Display available transcript translation languages                                   |
 | `-O`, `--output-path` | `$pwd`        | Specify the directory to save the output file                                        |
 | `-T`, `--token-count` |               | Specify Google Gemini or OpenAI model name to estimate the token count of the output |
+| `--transcript-url`    |               | Specify transcript URL                                                               |
 | `-h`, `--help`        |               | Display help message and exit                                                        |
 | `-v`, `--version`     |               | Display help message and exit                                                        |
 
@@ -75,3 +76,15 @@ There are options listed:
 > export LANG="en_US.UTF-8"
 > export LC_ALL="en_US.UTF-8"
 > ```
+
+## How to Retrieve a YouTube Video Transcript URL
+
+To access the transcript URL for a YouTube video, follow these steps to make a valid request:
+
+1. Open the YouTube video, right-click, and select **Inspect** (or press **F12**)
+1. Navigate to the **Network** tab in the developer tools
+1. Enable captions by clicking **CC** on the YouTube video player
+1. Return to the **Network** tab and filter requests by typing "timed" in the search bar
+1. Locate the request with a status code of **200**, right-click it, and select **Copy URL**.
+
+Once you have the transcript URL, provide it as the value for the `--transcript-url` option.
