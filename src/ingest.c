@@ -1053,31 +1053,39 @@ int ingest(const char *url, struct YtingestOpt *opt) {
     // Read more in the README
     if (isinclude(opt->exclude, "transcript") && opt->transcript_url) {
         cJSON *track = get_captions(root, 't');
-        if (track) {
-            char *url = set_tlang(opt->transcript_url, opt->lang);
-            char *raw_transcript = fetch(url, RF_JSON, NULL, NULL);
-            if (raw_transcript) {
-                char *transcript = parse_transcript(raw_transcript, &yt, opt);
-                if (transcript) {
-                    if (strcmp(transcript, "INVALID_LANG") != 0) {
-                        if (strcmp(opt->format, "json") == 0) {
-                            char *tmp_buff = normalize(transcript);
-                            yt.transcript = mstrdup(tmp_buff);
-                            free(tmp_buff);
-                        } else {
-                            yt.transcript = mstrdup(transcript);
-                        }
-                    }
-                    free(transcript);
-                }
-                free(raw_transcript);
-            } else {
-                printf("%sWARNING:%s Transcript is empty\n", ANSI_WARN, ANSI_RESET);
-            }
-            free(url);
-        } else {
+        if (!track) {
             printf("%sWARNING:%s Transcript not available\n", ANSI_WARN, ANSI_RESET);
+            goto done;
         }
+
+        char *url = set_tlang(opt->transcript_url, opt->lang);
+        char *raw_transcript = fetch(url, RF_JSON, NULL, NULL);
+        if (!raw_transcript) {
+            free(url);
+            printf("%sWARNING:%s Transcript is empty\n", ANSI_WARN, ANSI_RESET);
+            goto done;
+        }
+
+        char *transcript = parse_transcript(raw_transcript, &yt, opt);
+        if (!transcript) {
+            free(raw_transcript);
+            free(url);
+            goto done;
+        }
+
+        if (strcmp(transcript, "INVALID_LANG") != 0) {
+            if (strcmp(opt->format, "json") == 0) {
+                char *tmp_buff = normalize(transcript);
+                yt.transcript = mstrdup(tmp_buff);
+                free(tmp_buff);
+            } else {
+                yt.transcript = mstrdup(transcript);
+            }
+        }
+
+        free(transcript);
+        free(raw_transcript);
+        free(url);
     }
 
 done:
