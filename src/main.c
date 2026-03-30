@@ -40,21 +40,29 @@ static void print_help() {
     printf("\n");
 }
 
+enum {
+    OPT_DOH = 1000,
+    OPT_LANG,
+    OPT_LANG_AVAILABLE,
+    OPT_FORMAT,
+    OPT_TRANSCRIPT_URL,
+};
+
 int main(int argc, char *argv[]) {
     struct option init_opt[] = {
-        {"doh",            required_argument, NULL, 0  },
-        {"exclude",        required_argument, NULL, 'e'},
-        {"lang",           required_argument, NULL, 0  },
-        {"lang-available", no_argument,       NULL, 0  },
-        {"format",         required_argument, NULL, 0  },
-        {"output-path",    required_argument, NULL, 'O'},
-        {"transcript-url", required_argument, NULL, 0  },
+        {"doh",            required_argument, NULL, OPT_DOH           },
+        {"exclude",        required_argument, NULL, 'e'               },
+        {"lang",           required_argument, NULL, OPT_LANG          },
+        {"lang-available", no_argument,       NULL, OPT_LANG_AVAILABLE},
+        {"format",         required_argument, NULL, OPT_FORMAT        },
+        {"output-path",    required_argument, NULL, 'O'               },
+        {"transcript-url", required_argument, NULL, OPT_TRANSCRIPT_URL},
 #ifdef USE_LIBTOKENCOUNT
-        {"token-count",    required_argument, NULL, 'T'},
+        {"token-count",    required_argument, NULL, 'T'               },
 #endif
-        {"help",           no_argument,       NULL, 'h'},
-        {"version",        no_argument,       NULL, 'v'},
-        {0,                0,                 0,    0  }
+        {"help",           no_argument,       NULL, 'h'               },
+        {"version",        no_argument,       NULL, 'v'               },
+        {0,                0,                 0,    0                 }
     };
 
     struct YtingestOpt ytingest = {
@@ -71,8 +79,7 @@ int main(int argc, char *argv[]) {
 #endif
 
     int opt;
-    int opt_index = 0;
-    while ((opt = getopt_long(argc, argv, short_opt, init_opt, &opt_index)) != -1) {
+    while ((opt = getopt_long(argc, argv, short_opt, init_opt, NULL)) != -1) {
         switch (opt) {
             case 'e':
                 ytingest.exclude = optarg;
@@ -88,22 +95,28 @@ int main(int argc, char *argv[]) {
             case 'h':
                 print_help();
                 return EXIT_SUCCESS;
-                break;
             case 'v':
                 printf("%s\n", YTINGEST_VERSION);
                 return EXIT_SUCCESS;
-            case 0:
-                if (opt_index == 0) ytingest.doh = optarg;
-                if (opt_index == 2) ytingest.lang = optarg;
-                if (opt_index == 3) ytingest.lang_available = true;
-                if (opt_index == 4) ytingest.format = optarg;
-                if (opt_index == 6) ytingest.transcript_url = optarg;
+            case OPT_DOH:
+                ytingest.doh = optarg;
+                break;
+            case OPT_LANG:
+                ytingest.lang = optarg;
+                break;
+            case OPT_LANG_AVAILABLE:
+                ytingest.lang_available = true;
+                break;
+            case OPT_FORMAT:
+                ytingest.format = optarg;
+                break;
+            case OPT_TRANSCRIPT_URL:
+                ytingest.transcript_url = optarg;
                 break;
             case '?':
-                printf("Invalid option. Use -h or --help to display help meesage\n");
+                printf("Invalid option. Use -h or --help to display help message\n");
                 return EXIT_FAILURE;
             default:
-                printf("Error parsing options\n");
                 return EXIT_FAILURE;
         }
     }
@@ -111,7 +124,7 @@ int main(int argc, char *argv[]) {
     const char *url = NULL;
     if (optind < argc) url = argv[optind];
     if (!url) {
-        printf("Invalid option. Use -h or --help to display help meesage\n");
+        printf("Invalid option. Use -h or --help to display help message\n");
         return EXIT_FAILURE;
     }
 

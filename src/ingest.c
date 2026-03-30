@@ -115,49 +115,6 @@ static bool isempty(const char *value) {
     return true;
 }
 
-static char *set_tlang(const char *url, const char *new_value) {
-    if (!url || !new_value) return NULL;
-
-    size_t key_len = 5;
-
-    char search_q[key_len + 3];
-    char search_a[key_len + 3];
-
-    snprintf(search_q, sizeof(search_q), "?%s=", "tlang");
-    snprintf(search_a, sizeof(search_a), "&%s=", "tlang");
-
-    char *params_start = mstrcasestr(url, search_q);
-    if (!params_start) params_start = mstrcasestr(url, search_a);
-
-    if (params_start) {
-        char *value_start = params_start + key_len + 2;
-        char *value_end = strchr(value_start, '&');
-
-        size_t prefix_len = value_start - url;
-        const char *suffix_start = value_end ? value_end : "";
-        size_t new_value_len = strlen(new_value);
-        size_t suffix_len = strlen(suffix_start);
-
-        size_t new_url_len = prefix_len + new_value_len + suffix_len;
-        char *new_url = malloc(new_url_len + 1);
-        if (!new_url) return NULL;
-        snprintf(new_url, new_url_len + 1, "%.*s%s%s", (int)prefix_len, url, new_value, suffix_start);
-
-        return new_url;
-    }
-
-    const char *separator = strchr(url, '?') ? "&" : "?";
-    size_t url_len = strlen(url);
-    size_t new_value_len = strlen(new_value);
-
-    size_t new_url_len = url_len + 1 + key_len + 1 + new_value_len;
-    char *new_url = malloc(new_url_len + 1);
-    if (!new_url) return NULL;
-    snprintf(new_url, new_url_len + 1, "%s%s%s=%s", url, separator, "tlang", new_value);
-
-    return new_url;
-}
-
 /**
  * Callback function to write response data into memory.
  *
@@ -1058,10 +1015,8 @@ int ingest(const char *url, struct YtingestOpt *opt) {
             goto done;
         }
 
-        char *url = set_tlang(opt->transcript_url, opt->lang);
-        char *raw_transcript = fetch(url, RF_JSON, NULL, NULL);
+        char *raw_transcript = fetch(opt->transcript_url, RF_JSON, NULL, NULL);
         if (!raw_transcript) {
-            free(url);
             printf("%sWARNING:%s Transcript is empty\n", ANSI_WARN, ANSI_RESET);
             goto done;
         }
@@ -1069,7 +1024,6 @@ int ingest(const char *url, struct YtingestOpt *opt) {
         char *transcript = parse_transcript(raw_transcript, &yt, opt);
         if (!transcript) {
             free(raw_transcript);
-            free(url);
             goto done;
         }
 
@@ -1085,7 +1039,6 @@ int ingest(const char *url, struct YtingestOpt *opt) {
 
         free(transcript);
         free(raw_transcript);
-        free(url);
     }
 
 done:
